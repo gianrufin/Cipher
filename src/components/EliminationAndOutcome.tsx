@@ -124,42 +124,42 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
       {/* 1. IDENTITY REVEAL PHASE */}
       {subPhase === 'reveal' && (
         <div className="space-y-6 text-center">
-          <div className="rounded-2xl border-2 border-slate-800 bg-slate-900/90 p-6 shadow-2xl space-y-4">
-            <span className="text-xs uppercase font-mono text-slate-400 tracking-wider">
-              Accusation Result
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-6 shadow-xl space-y-4">
+            <span className="text-[10px] uppercase font-mono text-slate-400 tracking-wider">
+              Accusation Outcome
             </span>
 
-            <h2 className="font-display text-3xl sm:text-4xl font-black text-white">
+            <h2 className="font-display text-3xl font-bold text-slate-100">
               {eliminatedPlayer.name}
             </h2>
 
-            <div className="py-4">
+            <div className="py-3">
               {isImposter ? (
-                <div className="inline-flex items-center gap-2 px-5 py-2 rounded-2xl bg-rose-500/20 text-rose-300 border-2 border-rose-500/60 font-display font-black text-xl tracking-wider uppercase animate-bounce">
-                  <Flame className="h-6 w-6 text-rose-500" />
-                  <span>WAS AN IMPOSTER!</span>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/30 font-display font-bold text-sm tracking-wider uppercase">
+                  <Flame className="h-4 w-4 text-rose-400" />
+                  <span>Confirmed Imposter</span>
                 </div>
               ) : (
-                <div className="inline-flex items-center gap-2 px-5 py-2 rounded-2xl bg-emerald-500/20 text-emerald-300 border-2 border-emerald-500/60 font-display font-black text-xl tracking-wider uppercase">
-                  <ShieldCheck className="h-6 w-6 text-emerald-400" />
-                  <span>WAS AN INNOCENT CITIZEN!</span>
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-display font-bold text-sm tracking-wider uppercase">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  <span>Innocent Citizen</span>
                 </div>
               )}
             </div>
 
             <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
               {isImposter
-                ? `Great deduction! However, ${eliminatedPlayer.name} now has ONE chance to steal the win by guessing the Citizen word!`
-                : `Oh no! An innocent player was voted out. Check if imposters have seized majority or if the game continues.`}
+                ? `Accusation was correct! However, ${eliminatedPlayer.name} is granted one final guess at the Citizen secret word to steal victory.`
+                : `An innocent citizen was eliminated. The remaining players must quickly evaluate if the imposters now hold majority.`}
             </p>
 
             <button
               id="proceed-reveal-btn"
               type="button"
               onClick={handleProceedFromReveal}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white font-display font-bold text-sm tracking-wide shadow-lg shadow-rose-950/40 hover:opacity-95 active:scale-[0.98] transition-all"
+              className="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs uppercase tracking-wider shadow-md active:scale-[0.98] transition-all"
             >
-              {isImposter ? "Proceed to Imposter's Last Stand" : "Check Game Condition"}
+              {isImposter ? "Proceed to Last Stand Guess" : "Evaluate Round Condition"}
             </button>
           </div>
         </div>
@@ -168,38 +168,38 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
       {/* 2. THE IMPOSTER'S LAST STAND (WORD GUESS) */}
       {subPhase === 'last_stand' && (
         <div className="space-y-5 text-center">
-          <div className="rounded-2xl border-2 border-amber-500/60 bg-gradient-to-b from-amber-950/80 to-slate-900 p-6 shadow-2xl space-y-4">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-mono font-bold uppercase tracking-wider">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>THE IMPOSTER'S LAST STAND</span>
+          <div className="rounded-2xl border border-amber-500/30 bg-[#160c10] p-6 shadow-xl space-y-4">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono font-bold uppercase tracking-wider">
+              <Sparkles className="h-3 w-3" />
+              <span>THE LAST STAND</span>
             </div>
 
-            <h2 className="font-display text-2xl sm:text-3xl font-black text-white">
+            <h2 className="font-display text-2xl font-bold text-slate-100">
               {eliminatedPlayer.name}, guess the Citizen Word!
             </h2>
 
-            <p className="text-xs text-amber-200/90 max-w-xs mx-auto">
-              Category: <strong className="text-white">{categoryName}</strong>. If you guess the Citizens' secret word correctly, the Imposters steal the win right now!
+            <p className="text-xs text-amber-200/80 max-w-xs mx-auto leading-relaxed">
+              Category: <strong className="text-white">{categoryName}</strong>. If you correctly deduce the Citizens' word, Imposters steal the match victory!
             </p>
 
             <form onSubmit={handleLastStandGuess} className="space-y-3 pt-2">
               <input
                 id="imposter-guess-input"
                 type="text"
-                placeholder="Type your guess here..."
+                placeholder="Enter exact secret word..."
                 value={imposterGuess}
                 onChange={(e) => setImposterGuess(e.target.value)}
                 autoFocus
-                className="w-full rounded-xl border border-amber-500/50 bg-slate-950 px-4 py-3 text-center font-display font-bold text-lg text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                className="w-full rounded-xl border border-white/[0.1] bg-slate-950/90 px-4 py-3 text-center font-display font-bold text-base text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
               />
 
               <button
                 id="submit-imposter-guess-btn"
                 type="submit"
                 disabled={!imposterGuess.trim()}
-                className="w-full py-3.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 font-display font-black text-sm tracking-wider uppercase transition-all shadow-lg active:scale-[0.98] disabled:opacity-50"
+                className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-[0.98] disabled:opacity-40"
               >
-                Submit Final Guess & View Stats
+                Submit Guess & Reveal Outcome
               </button>
             </form>
           </div>

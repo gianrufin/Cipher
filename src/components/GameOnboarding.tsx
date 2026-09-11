@@ -131,10 +131,10 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500/20 text-rose-400 font-mono text-xs font-bold border border-rose-500/30">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.04] text-rose-400 font-mono text-xs font-bold border border-white/[0.08]">
               {currentStep + 1}
             </span>
-            <span className="text-xs font-mono uppercase tracking-widest text-slate-400">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
               Tutorial {currentStep + 1} of {totalSteps}
             </span>
           </div>
@@ -142,7 +142,7 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
           <button
             type="button"
             onClick={onSkip}
-            className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg hover:bg-slate-900 transition-colors font-medium"
+            className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg hover:bg-white/[0.04] transition-colors font-medium border border-transparent hover:border-white/[0.06]"
           >
             Skip to Game
           </button>
@@ -158,12 +158,12 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                 playTick();
                 setCurrentStep(idx);
               }}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
+              className={`h-1 rounded-full transition-all duration-300 ${
                 idx === currentStep
-                  ? 'bg-rose-500 shadow-sm shadow-rose-500/50'
+                  ? 'bg-rose-500'
                   : idx < currentStep
-                  ? 'bg-emerald-500/80'
-                  : 'bg-slate-800'
+                  ? 'bg-emerald-500/70'
+                  : 'bg-white/[0.08]'
               }`}
               aria-label={`Jump to step ${idx + 1}`}
             />
@@ -176,52 +176,50 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
         {/* STEP 0: Welcome & The 1-Phone Circle */}
         {currentStep === 0 && (
           <div className="space-y-6 text-center animate-fadeIn">
-            <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-tr from-rose-600 via-rose-500 to-amber-500 shadow-2xl shadow-rose-950/60 p-1">
-              <div className="flex h-full w-full items-center justify-center rounded-[22px] bg-slate-950/40 backdrop-blur-xs">
-                <Users className="h-12 w-12 text-white" />
-              </div>
-              <div className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-slate-950 shadow-md">
-                <Smartphone className="h-4 w-4" />
+            <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/[0.1] shadow-xl p-1">
+              <Users className="h-10 w-10 text-rose-400" />
+              <div className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-slate-950 shadow-md">
+                <Smartphone className="h-3.5 w-3.5" />
               </div>
             </div>
 
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest font-bold text-rose-400">
+              <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-rose-400">
                 Face-to-Face Social Deduction
               </span>
-              <h2 className="font-display text-3xl sm:text-4xl font-black text-white mt-1">
+              <h2 className="font-display text-3xl font-bold text-slate-100 mt-1">
                 How to Play Cipher
               </h2>
-              <p className="text-sm text-slate-300 mt-2 max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs text-slate-300/90 mt-2 max-w-sm mx-auto leading-relaxed">
                 Gather 3 to 16 players in a circle. You only need this <strong className="text-white">one phone</strong>. No apps to install and no accounts needed!
               </p>
             </div>
 
             {/* Quick 3-Pillar Cards */}
-            <div className="grid grid-cols-3 gap-2.5 text-left pt-2">
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80">
-                <span className="font-mono text-[10px] text-rose-400 font-bold uppercase block mb-1">
-                  01. Pass Phone
+            <div className="grid grid-cols-3 gap-2 text-left pt-2">
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <span className="font-mono text-[9px] text-rose-400 font-bold uppercase block mb-1">
+                  01. Pass
                 </span>
-                <p className="text-xs text-slate-300 leading-snug">
+                <p className="text-[11px] text-slate-300 leading-snug">
                   Players secretly view their identity one-by-one.
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80">
-                <span className="font-mono text-[10px] text-amber-400 font-bold uppercase block mb-1">
-                  02. Drop Clues
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <span className="font-mono text-[9px] text-amber-400 font-bold uppercase block mb-1">
+                  02. Clues
                 </span>
-                <p className="text-xs text-slate-300 leading-snug">
-                  Go around the circle giving subtle 1-word or phrase clues.
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  Go around giving subtle 1-word or phrase clues.
                 </p>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80">
-                <span className="font-mono text-[10px] text-emerald-400 font-bold uppercase block mb-1">
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <span className="font-mono text-[9px] text-emerald-400 font-bold uppercase block mb-1">
                   03. Unmask
                 </span>
-                <p className="text-xs text-slate-300 leading-snug">
+                <p className="text-[11px] text-slate-300 leading-snug">
                   Vote out the imposters before they infiltrate!
                 </p>
               </div>
@@ -233,53 +231,53 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
         {currentStep === 1 && (
           <div className="space-y-5 text-center animate-fadeIn">
             <div className="flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                <Lock className="h-7 w-7" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.03] text-rose-400 border border-white/[0.08]">
+                <Lock className="h-6 w-6" />
               </div>
             </div>
 
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest font-bold text-rose-400">
-                Interactive Demo
+              <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-rose-400">
+                Interactive Practice
               </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
-                The Hold-to-Reveal Shield
+              <h2 className="font-display text-2xl font-bold text-slate-100 mt-0.5">
+                The Touch Privacy Shield
               </h2>
-              <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs text-slate-300/90 mt-1 max-w-sm mx-auto leading-relaxed">
                 To prevent friends from peeking over your shoulder, your secret role is shielded until you press and hold. Try it right now!
               </p>
             </div>
 
             {/* Interactive Hold Practice Card */}
-            <div className="p-4 rounded-3xl bg-slate-900/90 border-2 border-slate-800 shadow-2xl relative overflow-hidden">
+            <div className="p-4 rounded-2xl bg-[#0c101a] border border-white/[0.08] shadow-xl relative overflow-hidden">
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
-                  <span className="font-mono">PLAYER: YOU</span>
-                  <span className="text-[10px] uppercase font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded-full">
-                    PRACTICE DRILL
+                <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-white/[0.08]">
+                  <span className="font-mono text-[10px]">RECIPIENT: YOU</span>
+                  <span className="text-[9px] uppercase font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                    SIMULATION
                   </span>
                 </div>
 
                 {!demoRevealed ? (
-                  <div className="py-6 space-y-3">
+                  <div className="py-6 space-y-2">
                     <div className="flex justify-center">
-                      <div className="h-12 w-12 rounded-full bg-slate-950 border border-slate-700 flex items-center justify-center text-slate-400">
-                        <EyeOff className="h-6 w-6" />
+                      <div className="h-10 w-10 rounded-xl bg-white/[0.03] border border-white/[0.08] flex items-center justify-center text-slate-400">
+                        <EyeOff className="h-5 w-5" />
                       </div>
                     </div>
                     <p className="text-xs text-slate-400 font-medium">
-                      Role Hidden Behind Privacy Shield
+                      Role Encrypted Under Touch Shield
                     </p>
                   </div>
                 ) : (
-                  <div className="py-5 space-y-2 animate-fadeIn bg-emerald-950/30 rounded-2xl border border-emerald-800/60 p-3">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 font-bold">
-                      ROLE UNLOCKED
+                  <div className="py-4 space-y-2 animate-fadeIn bg-emerald-950/20 rounded-xl border border-emerald-500/20 p-3">
+                    <span className="text-[9px] font-mono uppercase tracking-widest text-emerald-400 font-bold">
+                      ROLE DECRYPTED
                     </span>
-                    <h3 className="font-display text-2xl font-black text-white">
+                    <h3 className="font-display text-xl font-bold text-white">
                       CITIZEN
                     </h3>
-                    <div className="inline-block px-3 py-1 rounded-xl bg-slate-950 border border-emerald-500/40 text-emerald-300 font-display font-bold text-base">
+                    <div className="inline-block px-3 py-1 rounded-lg bg-slate-950 border border-emerald-500/30 text-emerald-300 font-display font-bold text-sm">
                       Secret Word: "Coffee"
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1">
@@ -297,10 +295,10 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                   onMouseLeave={cancelHoldDemo}
                   onTouchStart={startHoldDemo}
                   onTouchEnd={cancelHoldDemo}
-                  className={`w-full py-3.5 px-4 rounded-2xl font-display font-black text-xs uppercase tracking-wider relative overflow-hidden transition-all select-none ${
+                  className={`w-full py-3.5 px-4 rounded-xl font-display font-bold text-xs uppercase tracking-wider relative overflow-hidden transition-all select-none ${
                     demoRevealed
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/50'
-                      : 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-950/50'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'bg-rose-600 hover:bg-rose-500 text-white shadow-md'
                   }`}
                 >
                   {/* Progress Fill Indicator */}
@@ -313,12 +311,12 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                   <span className="relative z-10 flex items-center justify-center gap-2">
                     {demoRevealed ? (
                       <>
-                        <Unlock className="h-4 w-4" />
+                        <Unlock className="h-3.5 w-3.5" />
                         <span>Shield Active (Release to Hide)</span>
                       </>
                     ) : (
                       <>
-                        <Lock className="h-4 w-4" />
+                        <Lock className="h-3.5 w-3.5" />
                         <span>Press & Hold to Reveal (Practice)</span>
                       </>
                     )}
@@ -327,9 +325,9 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-[11px] text-amber-300 bg-amber-950/40 border border-amber-900/60 p-2.5 rounded-xl">
-              <Lightbulb className="h-4 w-4 shrink-0 text-amber-400" />
-              <span>Pro-tip: Always hold the phone close to your chest before revealing!</span>
+            <div className="flex items-center justify-center gap-2 text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
+              <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+              <span>Pro-tip: Hold the phone close to your chest before revealing!</span>
             </div>
           </div>
         )}
@@ -338,35 +336,35 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
         {currentStep === 2 && (
           <div className="space-y-5 text-center animate-fadeIn">
             <div className="flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                <Sparkles className="h-7 w-7" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.03] text-amber-400 border border-white/[0.08]">
+                <Sparkles className="h-6 w-6" />
               </div>
             </div>
 
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest font-bold text-amber-400">
-                The Core Innovation
+              <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-amber-400">
+                Core Innovation
               </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+              <h2 className="font-display text-2xl font-bold text-slate-100 mt-0.5">
                 The Decoy Word System
               </h2>
-              <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs text-slate-300/90 mt-1 max-w-sm mx-auto leading-relaxed">
                 In classic games, imposters know nothing and stay quiet. In Cipher, imposters receive a <strong className="text-white">subtly different decoy word</strong>!
               </p>
             </div>
 
             {/* Interactive Role Switcher Example */}
-            <div className="p-4 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-3">
-              <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+            <div className="p-4 rounded-2xl bg-[#0c101a] border border-white/[0.08] shadow-xl space-y-3">
+              <div className="flex rounded-xl bg-white/[0.03] p-1 border border-white/[0.06]">
                 <button
                   type="button"
                   onClick={() => {
                     playTick();
                     setSelectedRoleTab('citizen');
                   }}
-                  className={`flex-1 py-2 rounded-lg font-display text-xs font-bold uppercase transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg font-display text-xs font-semibold transition-all ${
                     selectedRoleTab === 'citizen'
-                      ? 'bg-emerald-600 text-white shadow-md'
+                      ? 'bg-emerald-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -378,9 +376,9 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                     playTick();
                     setSelectedRoleTab('imposter');
                   }}
-                  className={`flex-1 py-2 rounded-lg font-display text-xs font-bold uppercase transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg font-display text-xs font-semibold transition-all ${
                     selectedRoleTab === 'imposter'
-                      ? 'bg-rose-600 text-white shadow-md'
+                      ? 'bg-rose-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -390,29 +388,29 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
 
               {/* Card Preview */}
               {selectedRoleTab === 'citizen' ? (
-                <div className="p-4 rounded-2xl bg-emerald-950/30 border-2 border-emerald-500/40 text-left space-y-2 animate-fadeIn">
+                <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-left space-y-2 animate-fadeIn">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase">
-                      Citizen Identity
+                    <span className="text-[9px] font-mono font-bold text-emerald-400 uppercase">
+                      Citizen Secret
                     </span>
-                    <span className="text-[10px] font-mono text-slate-400">Majority</span>
+                    <span className="text-[9px] font-mono text-slate-400">Majority</span>
                   </div>
-                  <div className="font-display text-2xl font-black text-white">
+                  <div className="font-display text-2xl font-bold text-white">
                     "Espresso"
                   </div>
                   <p className="text-xs text-emerald-200/80 leading-relaxed">
-                    You know the genuine secret word. Your goal is to give a clue that proves to other Citizens you belong, without revealing "Espresso" to the imposter!
+                    You know the genuine secret word. Your goal is to give a clue that proves you belong, without revealing "Espresso" to the imposter!
                   </p>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-rose-950/30 border-2 border-rose-500/40 text-left space-y-2 animate-fadeIn">
+                <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-500/20 text-left space-y-2 animate-fadeIn">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-mono font-bold text-rose-400 uppercase">
-                      Imposter Identity (Decoy)
+                    <span className="text-[9px] font-mono font-bold text-rose-400 uppercase">
+                      Imposter Decoy
                     </span>
-                    <span className="text-[10px] font-mono text-rose-300 font-bold">Infiltrator</span>
+                    <span className="text-[9px] font-mono text-rose-300 font-bold">Infiltrator</span>
                   </div>
-                  <div className="font-display text-2xl font-black text-white">
+                  <div className="font-display text-2xl font-bold text-white">
                     "Latte"
                   </div>
                   <p className="text-xs text-rose-200/80 leading-relaxed">
@@ -432,52 +430,52 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
         {currentStep === 3 && (
           <div className="space-y-5 text-center animate-fadeIn">
             <div className="flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                <MessageSquare className="h-7 w-7" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.03] text-sky-400 border border-white/[0.08]">
+                <MessageSquare className="h-6 w-6" />
               </div>
             </div>
 
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest font-bold text-sky-400">
-                Face-to-Face Gameplay
+              <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-sky-400">
+                Gameplay Etiquette
               </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+              <h2 className="font-display text-2xl font-bold text-slate-100 mt-0.5">
                 Giving Verbal Clues
               </h2>
-              <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto leading-relaxed">
-                Place the phone in the center of the table. The app shows the speaking turn order and built-in timer.
+              <p className="text-xs text-slate-300/90 mt-1 max-w-sm mx-auto leading-relaxed">
+                Place the phone in the center of the table. The app guides the turn order and timer.
               </p>
             </div>
 
             {/* The Golden Rule Breakdown */}
-            <div className="space-y-3 text-left">
-              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
-                <div className="flex items-center gap-2 text-xs font-bold text-rose-400">
-                  <span className="h-2 w-2 rounded-full bg-rose-500" />
+            <div className="space-y-2.5 text-left">
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-rose-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
                   <span>Don't be too obvious</span>
                 </div>
-                <p className="text-xs text-slate-300 pl-4 leading-relaxed">
-                  Saying <em>"It's brewed from roasted beans"</em> makes it way too easy for the Imposter to figure out your word!
+                <p className="text-xs text-slate-300 pl-3.5 leading-relaxed">
+                  Saying <em>"It's brewed from roasted beans"</em> makes it way too easy for the Imposter to deduce your word!
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-1">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
-                  <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  <span>Don't be too obscure</span>
+              <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-amber-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  <span>Don't be too cryptic</span>
                 </div>
-                <p className="text-xs text-slate-300 pl-4 leading-relaxed">
+                <p className="text-xs text-slate-300 pl-3.5 leading-relaxed">
                   Saying <em>"My cousin once touched this in 2014"</em> sounds suspicious and will get you voted out by innocent Citizens!
                 </p>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-emerald-800/60 bg-emerald-950/20 space-y-1">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <div className="p-3.5 rounded-xl border border-emerald-500/20 bg-emerald-950/20 space-y-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   <span>The Sweet Spot</span>
                 </div>
-                <p className="text-xs text-emerald-200/90 pl-4 leading-relaxed">
-                  Clever, associative clues that only someone with your word will nod along with!
+                <p className="text-xs text-emerald-200/90 pl-3.5 leading-relaxed">
+                  Clever, associative clues that only someone with your word will understand.
                 </p>
               </div>
             </div>
@@ -488,40 +486,40 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
         {currentStep === 4 && (
           <div className="space-y-5 text-center animate-fadeIn">
             <div className="flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                <Target className="h-7 w-7" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.03] text-rose-400 border border-white/[0.08]">
+                <Target className="h-6 w-6" />
               </div>
             </div>
 
             <div>
-              <span className="text-[11px] font-mono uppercase tracking-widest font-bold text-rose-400">
-                Endgame Drama
+              <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-rose-400">
+                Final Climax
               </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-black text-white mt-1">
+              <h2 className="font-display text-2xl font-bold text-slate-100 mt-0.5">
                 The Imposter's Last Stand
               </h2>
-              <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto leading-relaxed">
-                When voting time arrives, everyone debates and points at a suspect. But catching the imposter isn't the end!
+              <p className="text-xs text-slate-300/90 mt-1 max-w-sm mx-auto leading-relaxed">
+                When voting concludes, catching the imposter isn't the end.
               </p>
             </div>
 
             {/* Last Stand Card */}
-            <div className="p-4 rounded-3xl bg-gradient-to-b from-amber-950/50 to-slate-900 border-2 border-amber-500/50 text-left space-y-3">
+            <div className="p-4 rounded-2xl bg-[#160c10] border border-amber-500/30 text-left space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold uppercase text-amber-400 flex items-center gap-1.5">
-                  <Zap className="h-4 w-4" />
-                  The Steal Mechanic
+                  <Zap className="h-3.5 w-3.5" />
+                  <span>The Steal Mechanic</span>
                 </span>
-                <span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md">
+                <span className="text-[9px] font-mono bg-amber-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded-md">
                   High Stakes
                 </span>
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
-                Even if the room successfully unmasks an Imposter, that Imposter gets <strong className="text-white">ONE FINAL GUESS</strong> at the Citizen secret word.
+                Even if the room unmasks an Imposter, that Imposter gets <strong className="text-white">ONE FINAL GUESS</strong> at the Citizen secret word.
               </p>
 
-              <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-amber-200">
+              <div className="p-3 rounded-xl bg-slate-950/80 border border-white/[0.08] text-xs text-amber-200">
                 🎯 <strong>If the Imposter guesses correctly:</strong> The Imposters immediately STEAL the victory! Keep your true word guarded until the very end.
               </div>
             </div>
@@ -532,7 +530,7 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                 type="checkbox"
                 checked={dontShowAgain}
                 onChange={(e) => setDontShowAgain(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-rose-600 focus:ring-rose-500"
+                className="h-4 w-4 rounded border-white/[0.1] bg-slate-950 text-rose-600 focus:ring-rose-500"
               />
               <span>Don't show tutorial automatically again</span>
             </label>
@@ -541,16 +539,16 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
       </div>
 
       {/* Bottom Controls: Back / Next / Finish */}
-      <div className="pt-4 border-t border-slate-800/80 space-y-2">
+      <div className="pt-4 border-t border-white/[0.08] space-y-2">
         <div className="flex items-center gap-2">
           {currentStep > 0 && (
             <button
               type="button"
               id="onboarding-prev-btn"
               onClick={handlePrev}
-              className="flex items-center justify-center gap-1 py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-display font-bold text-xs uppercase tracking-wider transition-colors active:scale-[0.98]"
+              className="flex items-center justify-center gap-1 py-3 px-4 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 font-semibold text-xs transition-colors active:scale-[0.98]"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
               <span>Back</span>
             </button>
           )}
@@ -559,17 +557,17 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
             type="button"
             id="onboarding-next-btn"
             onClick={handleNext}
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 text-white font-display font-black text-xs uppercase tracking-wider shadow-lg shadow-rose-950/50 hover:opacity-95 active:scale-[0.98] transition-all"
+            className="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs uppercase tracking-wider shadow-md active:scale-[0.98] transition-all"
           >
             {currentStep === totalSteps - 1 ? (
               <>
-                <Play className="h-4 w-4 fill-white" />
-                <span>Let's Play Cipher!</span>
+                <Play className="h-3.5 w-3.5 fill-white" />
+                <span>Let's Play Cipher</span>
               </>
             ) : (
               <>
                 <span>Next Step</span>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-3.5 w-3.5" />
               </>
             )}
           </button>

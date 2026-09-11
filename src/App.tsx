@@ -277,7 +277,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased selection:bg-rose-500 selection:text-white">
+    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans antialiased selection:bg-rose-500 selection:text-white">
       {/* Universal Header Navbar */}
       <Navbar
         onOpenRules={() => setIsRulesOpen(true)}

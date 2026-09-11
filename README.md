@@ -41,6 +41,7 @@ This project is pre-configured with **relative asset paths** (`base: './'`) and 
 - **Dynamic Clue Round**: Guided speaking order with an optional built-in timer and wild round modifiers.
 - **The Imposter's Last Stand**: Even when voted out, an unmasked imposter gets one final guess to steal victory.
 - **Game Stats & Analytics**: Tracks rounds played, imposters caught, win percentages, and match histories.
+- **Progressive Web App (PWA) & Offline First**: Fully installable to iPhone and Android home screens with fullscreen display and zero internet dependency after initial load.
 - **Custom Word Packs**: Add custom inside jokes, word pairs, and local themes saved directly in browser storage.
 
 ---
