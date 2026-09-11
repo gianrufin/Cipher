@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  GamePhase, Player, WordCategory, WordPair, GameMode, 
+  GamePhase, Player, WordCategory, WordPair, GameMode, VotingStyle,
   RoundModifier, SessionStats, MatchSummary 
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
@@ -84,6 +84,8 @@ export default function App() {
   const [activeModifier, setActiveModifier] = useState<RoundModifier | null>(null);
   const [eliminatedPlayer, setEliminatedPlayer] = useState<Player | null>(null);
   const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
+  const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
+  const [useDoubleAgentDecoy, setUseDoubleAgentDecoy] = useState(false);
 
   // Save custom pairs to local storage
   const handleSaveCustomPairs = (updated: WordPair[]) => {
@@ -102,6 +104,8 @@ export default function App() {
     mode,
     accomplicesAware: isAccomplicesAware,
     useModifiers,
+    useDoubleAgentDecoy,
+    votingStyle: chosenVotingStyle,
     category,
     selectedPair
   }: {
@@ -110,6 +114,8 @@ export default function App() {
     mode: GameMode;
     accomplicesAware: boolean;
     useModifiers: boolean;
+    useDoubleAgentDecoy: boolean;
+    votingStyle: VotingStyle;
     category: WordCategory;
     selectedPair: WordPair;
   }) => {
@@ -132,6 +138,8 @@ export default function App() {
     setActivePair(selectedPair);
     setGameMode(mode);
     setAccomplicesAware(isAccomplicesAware);
+    setVotingStyle(chosenVotingStyle);
+    setUseDoubleAgentDecoy(useDoubleAgentDecoy);
     setRoundNumber(1);
     setMatchSummary(null);
 
@@ -152,15 +160,23 @@ export default function App() {
     }
     const imposterIndices = new Set(indices.slice(0, impostersCount));
 
+    // If Double-Agent Decoy is enabled, pick 1 innocent citizen to experience paranoid status
+    const nonImposterIndices = indices.slice(impostersCount);
+    const doubleAgentIndex = (useDoubleAgentDecoy && nonImposterIndices.length > 0)
+      ? nonImposterIndices[Math.floor(Math.random() * nonImposterIndices.length)]
+      : -1;
+
     // Construct Player list
     const generatedPlayers: Player[] = playerNames.map((name, idx) => {
       const isImposter = imposterIndices.has(idx);
+      const isDoubleAgent = idx === doubleAgentIndex;
       return {
         id: `p-${idx}-${Date.now()}`,
         name,
         role: isImposter ? 'imposter' : 'citizen',
         secretWord: isImposter ? (mode === 'decoy' ? imposterWord : '') : citizenWord,
         isDecoyWord: isImposter && mode === 'decoy',
+        isDoubleAgentDecoy: isDoubleAgent,
         isEliminated: false,
         avatarSeed: idx,
         votesAgainst: 0
@@ -263,6 +279,8 @@ export default function App() {
       mode: gameMode,
       accomplicesAware,
       useModifiers: activeModifier !== null,
+      useDoubleAgentDecoy,
+      votingStyle,
       category: cat,
       selectedPair: pair
     });
@@ -333,6 +351,7 @@ export default function App() {
         {phase === 'voting' && (
           <DiscussionAndVoting
             players={players}
+            initialVotingStyle={votingStyle}
             onEliminatePlayer={handleEliminatePlayer}
             onReturnToClues={() => setPhase('clue_round')}
           />

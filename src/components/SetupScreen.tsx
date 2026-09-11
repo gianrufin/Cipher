@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { 
   Users, UserPlus, Trash2, Shuffle, Sparkles, 
-  Settings2, Flame, Eye, EyeOff, BookOpen, AlertCircle, Compass
+  Settings2, Flame, Eye, EyeOff, BookOpen, AlertCircle, Compass,
+  ShieldAlert, Vote
 } from 'lucide-react';
-import { GameMode, WordCategory, WordPair } from '../types';
+import { GameMode, VotingStyle, WordCategory, WordPair } from '../types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from '../data/wordPacks';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
 
@@ -14,6 +15,8 @@ interface SetupScreenProps {
     mode: GameMode;
     accomplicesAware: boolean;
     useModifiers: boolean;
+    useDoubleAgentDecoy: boolean;
+    votingStyle: VotingStyle;
     category: WordCategory;
     selectedPair: WordPair;
   }) => void;
@@ -40,6 +43,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [mode, setMode] = useState<GameMode>('decoy');
   const [accomplicesAware, setAccomplicesAware] = useState(true);
   const [useModifiers, setUseModifiers] = useState(false);
+  const [useDoubleAgentDecoy, setUseDoubleAgentDecoy] = useState(false);
+  const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('random');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -132,6 +137,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       mode,
       accomplicesAware,
       useModifiers,
+      useDoubleAgentDecoy: playerNames.length >= 4 ? useDoubleAgentDecoy : false,
+      votingStyle,
       category: chosenCategory,
       selectedPair: chosenPair
     });
@@ -366,11 +373,48 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           </div>
         )}
 
+        {/* Double-Agent Decoy toggle */}
+        <div className="pt-3.5 border-t border-white/[0.06] flex items-center justify-between">
+          <div className="max-w-[78%]">
+            <span className="text-xs font-semibold text-slate-200 block flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+              <span>Double-Agent Decoy (Paranoid Citizen)</span>
+            </span>
+            <span className="text-[11px] text-slate-400 leading-relaxed block mt-0.5">
+              1 innocent Citizen is warned their word <em>might</em> be a decoy. They hold the real word, but play with hyper-paranoia!
+              {playerNames.length < 4 && (
+                <span className="text-rose-400/80 block mt-0.5"> (Requires 4+ players)</span>
+              )}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={playerNames.length < 4}
+            onClick={() => {
+              setUseDoubleAgentDecoy(!useDoubleAgentDecoy);
+              triggerHaptic(20);
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              playerNames.length < 4 
+                ? 'bg-slate-800/40 opacity-50 cursor-not-allowed'
+                : useDoubleAgentDecoy 
+                ? 'bg-amber-600' 
+                : 'bg-slate-800'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                useDoubleAgentDecoy && playerNames.length >= 4 ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+
         {/* Round Modifiers toggle */}
         <div className="pt-3.5 border-t border-white/[0.06] flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-slate-200 block flex items-center gap-1.5">
-              <Flame className="h-3.5 w-3.5 text-amber-400" />
+              <Flame className="h-3.5 w-3.5 text-rose-400" />
               <span>Round Modifiers</span>
             </span>
             <span className="text-[11px] text-slate-400">
@@ -384,7 +428,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               triggerHaptic(20);
             }}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              useModifiers ? 'bg-amber-600' : 'bg-slate-800'
+              useModifiers ? 'bg-rose-600' : 'bg-slate-800'
             }`}
           >
             <span
@@ -392,6 +436,75 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                 useModifiers ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Voting Protocol: Open Accusation vs Blind Ballot */}
+      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-3.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+            <Vote className="h-4 w-4 text-rose-400" />
+            <span>Voting Protocol</span>
+          </label>
+          <span className="text-[10px] font-mono uppercase text-slate-400">
+            {votingStyle === 'open' ? 'Face-to-Face' : 'Confidential'}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Open Accusation */}
+          <button
+            type="button"
+            onClick={() => {
+              setVotingStyle('open');
+              triggerHaptic(20);
+            }}
+            className={`p-3.5 rounded-xl border text-left transition-all ${
+              votingStyle === 'open'
+                ? 'border-rose-500/80 bg-rose-500/10 text-white'
+                : 'border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-white/[0.15]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+                <Users className="h-3.5 w-3.5" />
+                <span>Open Accusation</span>
+              </div>
+              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                Recommended
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Debate in the circle, countdown 3-2-1 to point fingers simultaneously, then tap the accused player.
+            </p>
+          </button>
+
+          {/* Blind Ballot */}
+          <button
+            type="button"
+            onClick={() => {
+              setVotingStyle('blind');
+              triggerHaptic(20);
+            }}
+            className={`p-3.5 rounded-xl border text-left transition-all ${
+              votingStyle === 'blind'
+                ? 'border-sky-500/80 bg-sky-500/10 text-white'
+                : 'border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-white/[0.15]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-sky-300">
+                <EyeOff className="h-3.5 w-3.5" />
+                <span>Blind Ballot</span>
+              </div>
+              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                Secret
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Pass the phone in private. Every player secretly votes on-screen. Tally and elimination are revealed together.
+            </p>
           </button>
         </div>
       </div>

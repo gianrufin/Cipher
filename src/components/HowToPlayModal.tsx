@@ -56,6 +56,10 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
                 <span className="font-bold text-rose-300 block mb-0.5">Imposters:</span>
                 In <strong>Decoy Mode</strong>, Imposters receive a subtly paired decoy word (e.g., "Latte"). In <strong>Blind Mode</strong>, they only know the category!
               </div>
+              <div className="rounded-lg bg-amber-950/20 border border-amber-500/20 p-2.5">
+                <span className="font-bold text-amber-300 block mb-0.5">Double-Agent Decoy (Optional Twist):</span>
+                One innocent Citizen is secretly told their word <em>might</em> be a decoy. They hold the true word, but must deduce if they are innocent while playing with hyper-paranoia!
+              </div>
             </div>
           </div>
 
@@ -74,10 +78,10 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 space-y-1">
             <div className="flex items-center gap-2 text-purple-400 font-semibold text-xs uppercase tracking-wide">
               <Vote className="h-3.5 w-3.5" />
-              <span>4. Voting & The Last Stand</span>
+              <span>4. Open Accusation or Blind Ballot</span>
             </div>
             <p className="text-slate-300 text-xs leading-relaxed">
-              Debate openly and vote to eliminate a suspect. If an Imposter is eliminated, they get ONE final chance to guess the Citizens' true word and steal the game.
+              Use <strong>Open Accusation</strong> for live table debate with an audio 3-2-1 simultaneous finger point countdown, or <strong>Blind Ballot</strong> to pass the phone around for confidential voting. If an eliminated player is an Imposter, they get ONE final chance at the Last Stand!
             </p>
           </div>
 

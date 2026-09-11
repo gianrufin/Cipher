@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   Smartphone, Eye, EyeOff, Shield, AlertTriangle, 
-  Sparkles, CheckCircle, ArrowRight, Lock, Unlock, Flame
+  Sparkles, CheckCircle, ArrowRight, Lock, Unlock, Flame, ShieldAlert
 } from 'lucide-react';
 import { Player, GameMode } from '../types';
 import { playReveal, playWhoosh, triggerHaptic } from '../utils/soundEffects';
@@ -177,26 +177,61 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
           <div className="flex flex-col items-center text-center space-y-4 animate-fadeIn">
             {/* Role Header Badge */}
             {currentPlayer.role === 'citizen' ? (
-              <div className="w-full rounded-2xl bg-[#0a1410] border border-emerald-500/30 p-5 shadow-2xl space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono font-bold uppercase tracking-wider">
-                  <Shield className="h-3 w-3" />
-                  <span>CITIZEN</span>
-                </div>
+              currentPlayer.isDoubleAgentDecoy ? (
+                /* DOUBLE-AGENT DECOY (PARANOID CITIZEN) */
+                <div className="w-full rounded-2xl bg-[#17120a] border border-amber-500/40 p-5 shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+                      <ShieldAlert className="h-3 w-3 text-amber-400" />
+                      <span>DOUBLE-AGENT DECOY</span>
+                    </div>
+                    <span className="text-[9px] font-mono uppercase bg-amber-950/60 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20">
+                      PARANOID STATUS
+                    </span>
+                  </div>
 
-                <div className="space-y-1">
-                  <span className="text-[11px] uppercase font-mono text-slate-400 block tracking-wider">
-                    Category: {categoryName}
-                  </span>
-                  <span className="text-xs text-slate-400">Your Secret Word:</span>
-                  <div className="font-display text-3xl font-bold text-white tracking-wide py-3 px-4 bg-slate-950/70 rounded-xl border border-emerald-500/20 my-2">
-                    {currentPlayer.secretWord}
+                  <div className="space-y-1">
+                    <span className="text-[11px] uppercase font-mono text-slate-400 block tracking-wider">
+                      Category: {categoryName}
+                    </span>
+                    <span className="text-xs text-amber-200/80">Assigned Secret Word:</span>
+                    <div className="font-display text-3xl font-bold text-amber-100 tracking-wide py-3 px-4 bg-slate-950/80 rounded-xl border border-amber-500/30 my-2">
+                      {currentPlayer.secretWord}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-amber-200/90 leading-relaxed bg-amber-950/30 p-3 rounded-lg border border-amber-900/40 text-left space-y-1.5">
+                    <p>
+                      <strong className="text-amber-300">⚠️ Classified Briefing:</strong> You are the <strong>Double-Agent Decoy</strong>. You hold what might be the true Citizen secret word, <em>or</em> an Imposter decoy—your true status is unconfirmed!
+                    </p>
+                    <p className="text-[11px] text-amber-300/80">
+                      Listen to other clues with hyper-paranoia. Blend in carefully without revealing your doubts!
+                    </p>
                   </div>
                 </div>
+              ) : (
+                /* REGULAR CITIZEN */
+                <div className="w-full rounded-2xl bg-[#0a1410] border border-emerald-500/30 p-5 shadow-2xl space-y-4">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono font-bold uppercase tracking-wider">
+                    <Shield className="h-3 w-3" />
+                    <span>CITIZEN</span>
+                  </div>
 
-                <p className="text-xs text-emerald-200/80 leading-relaxed bg-emerald-950/30 p-3 rounded-lg border border-emerald-900/30 text-left">
-                  All fellow Citizens hold this exact word. One or more imposters have a different word and will try to deceive you!
-                </p>
-              </div>
+                  <div className="space-y-1">
+                    <span className="text-[11px] uppercase font-mono text-slate-400 block tracking-wider">
+                      Category: {categoryName}
+                    </span>
+                    <span className="text-xs text-slate-400">Your Secret Word:</span>
+                    <div className="font-display text-3xl font-bold text-white tracking-wide py-3 px-4 bg-slate-950/70 rounded-xl border border-emerald-500/20 my-2">
+                      {currentPlayer.secretWord}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-emerald-200/80 leading-relaxed bg-emerald-950/30 p-3 rounded-lg border border-emerald-900/30 text-left">
+                    All fellow Citizens hold this exact word. One or more imposters have a different word and will try to deceive you!
+                  </p>
+                </div>
+              )
             ) : (
               /* Imposter Reveal */
               <div className="w-full rounded-2xl bg-[#160c10] border border-rose-500/30 p-5 shadow-2xl space-y-4">

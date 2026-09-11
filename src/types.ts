@@ -2,12 +2,15 @@ export type RoleType = 'citizen' | 'imposter' | 'accomplice';
 
 export type GameMode = 'decoy' | 'blind';
 
+export type VotingStyle = 'open' | 'blind';
+
 export interface Player {
   id: string;
   name: string;
   role: RoleType;
   secretWord: string;
   isDecoyWord: boolean;
+  isDoubleAgentDecoy?: boolean;
   isEliminated: boolean;
   avatarSeed: number;
   votesAgainst: number;

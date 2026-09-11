@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   ShieldCheck, Flame, Trophy, RotateCcw, ArrowRight, 
-  HelpCircle, AlertTriangle, Sparkles, Check, X, Users
+  HelpCircle, AlertTriangle, Sparkles, Check, X, Users, ShieldAlert
 } from 'lucide-react';
 import { Player, MatchSummary } from '../types';
 import { playElimination, playVictory, playImposterWin, triggerHaptic } from '../utils/soundEffects';
@@ -139,6 +139,11 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
                   <Flame className="h-4 w-4 text-rose-400" />
                   <span>Confirmed Imposter</span>
                 </div>
+              ) : eliminatedPlayer.isDoubleAgentDecoy ? (
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 font-display font-bold text-sm tracking-wider uppercase">
+                  <ShieldAlert className="h-4 w-4 text-amber-400" />
+                  <span>Citizen (Double-Agent Decoy)</span>
+                </div>
               ) : (
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-display font-bold text-sm tracking-wider uppercase">
                   <ShieldCheck className="h-4 w-4 text-emerald-400" />
@@ -150,6 +155,8 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
             <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
               {isImposter
                 ? `Accusation was correct! However, ${eliminatedPlayer.name} is granted one final guess at the Citizen secret word to steal victory.`
+                : eliminatedPlayer.isDoubleAgentDecoy
+                ? `${eliminatedPlayer.name} was an innocent Citizen! However, they were playing under Double-Agent Decoy paranoia, doubting their own clues and appearing suspicious to the group.`
                 : `An innocent citizen was eliminated. The remaining players must quickly evaluate if the imposters now hold majority.`}
             </p>
 

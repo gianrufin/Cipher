@@ -210,3 +210,27 @@ export function playImposterWin() {
     osc.stop(now + i * 0.16 + 0.38);
   });
 }
+
+export function playCountdown(step: number) {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  const isZero = step === 0;
+  osc.type = isZero ? 'sawtooth' : 'sine';
+  osc.frequency.setValueAtTime(isZero ? 880 : 440 + (3 - step) * 110, ctx.currentTime);
+
+  gain.gain.setValueAtTime(isZero ? 0.25 : 0.15, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (isZero ? 0.35 : 0.12));
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start();
+  osc.stop(ctx.currentTime + (isZero ? 0.35 : 0.12));
+  triggerHaptic(isZero ? [80, 50, 150] : 40);
+}
+

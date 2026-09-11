@@ -238,10 +238,12 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
                     className={`font-mono text-[9px] font-bold px-1.5 py-0.5 rounded ${
                       p.role === 'imposter'
                         ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
+                        : p.isDoubleAgentDecoy
+                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                         : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                     }`}
                   >
-                    {p.role.toUpperCase()}
+                    {p.role === 'imposter' ? 'IMPOSTER' : p.isDoubleAgentDecoy ? 'DOUBLE AGENT' : 'CITIZEN'}
                   </span>
                 </div>
               </div>

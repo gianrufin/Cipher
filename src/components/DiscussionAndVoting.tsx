@@ -1,26 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Vote, Users, ShieldAlert, ArrowRight, EyeOff, 
-  Check, AlertTriangle, Flame, RotateCcw
+  Check, AlertTriangle, Flame, RotateCcw, Zap, Compass
 } from 'lucide-react';
-import { Player } from '../types';
-import { playVote, triggerHaptic, playWhoosh } from '../utils/soundEffects';
+import { Player, VotingStyle } from '../types';
+import { playVote, triggerHaptic, playWhoosh, playCountdown } from '../utils/soundEffects';
 
 interface DiscussionAndVotingProps {
   players: Player[];
+  initialVotingStyle?: VotingStyle;
   onEliminatePlayer: (playerId: string) => void;
   onReturnToClues: () => void;
 }
 
 export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
   players,
+  initialVotingStyle = 'open',
   onEliminatePlayer,
   onReturnToClues
 }) => {
   const activePlayers = players.filter(p => !p.isEliminated);
 
   // Voting mode: 'open' (group points finger & taps accused) or 'secret_ballot' (pass phone to vote secretly)
-  const [votingMethod, setVotingMethod] = useState<'open' | 'secret'>('open');
+  const [votingMethod, setVotingMethod] = useState<'open' | 'secret'>(
+    initialVotingStyle === 'blind' ? 'secret' : 'open'
+  );
+
+  // 3-2-1 Simultaneous Pointing Countdown State
+  const [countdownStep, setCountdownStep] = useState<number | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // For open vote: currently selected target for confirmation
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
@@ -32,6 +40,33 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
   const [currentSecretSelection, setCurrentSecretSelection] = useState<string | null>(null);
 
   const currentVoter = activePlayers[secretVoterIndex];
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, []);
+
+  const handleStartCountdown = () => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    setCountdownStep(3);
+    playCountdown(3);
+
+    let current = 3;
+    countdownTimerRef.current = setInterval(() => {
+      current -= 1;
+      if (current >= 0) {
+        setCountdownStep(current);
+        playCountdown(current);
+      } else {
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+        setTimeout(() => {
+          setCountdownStep(null);
+        }, 2200);
+      }
+    }, 950);
+  };
 
   // Open voting selection
   const handleSelectOpenTarget = (id: string) => {
@@ -147,8 +182,55 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
       {/* METHOD 1: OPEN ACCUSATION */}
       {votingMethod === 'open' && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-white/[0.08] bg-[#0c101a] p-3 text-xs text-slate-300 leading-relaxed">
-            Deliberate with the table. Once consensus forms on a suspect, select their card below to vote for elimination.
+          {/* Simultaneous Pointing Widget */}
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-4 text-center space-y-3 shadow-lg">
+            {countdownStep !== null ? (
+              <div className="py-6 space-y-2 animate-pulse">
+                {countdownStep > 0 ? (
+                  <>
+                    <div className="font-display font-black text-6xl text-rose-400 tracking-tight">
+                      {countdownStep}
+                    </div>
+                    <p className="text-xs font-mono uppercase tracking-widest text-slate-300">
+                      Lock in your suspect... get ready!
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-display font-black text-4xl sm:text-5xl text-rose-300 tracking-wider">
+                      👉 POINT NOW! 👈
+                    </div>
+                    <p className="text-xs text-rose-200/90 font-medium">
+                      Everyone points at their prime suspect!
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100">
+                    <Zap className="h-3.5 w-3.5 text-rose-400" />
+                    <span>Simultaneous Finger-Point</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs">
+                    Trigger a 3-second audio countdown so everyone points at once—zero copycat voting!
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleStartCountdown}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white font-semibold text-xs whitespace-nowrap shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  <span>3-2-1 Point!</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-300 leading-relaxed">
+            Deliberate with the table or use the 3-2-1 point. Select the player who received the most accusations below:
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
