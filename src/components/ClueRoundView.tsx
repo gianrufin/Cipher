@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Volume2, Play, Pause, RotateCcw, ChevronRight, 
   MessageSquare, Sparkles, HelpCircle, Vote, AlertCircle, 
-  Users, Flame, Clock
+  Users, Flame, Clock, Shuffle, Zap
 } from 'lucide-react';
 import { Player, RoundModifier } from '../types';
 import { INTERROGATION_QUESTIONS } from '../data/wordPacks';
-import { playTick, playWhoosh, triggerHaptic } from '../utils/soundEffects';
+import { playTick, playWhoosh, triggerHaptic, playCountdown } from '../utils/soundEffects';
 
 interface ClueRoundViewProps {
   players: Player[];
@@ -16,6 +16,57 @@ interface ClueRoundViewProps {
   onProceedToVoting: () => void;
 }
 
+/**
+ * Strategic shuffle algorithm:
+ * - Distributes Imposters evenly across the speaking lineup so they aren't clustered together
+ * - In round 2+, ensures the previous round's opening speaker isn't stuck speaking first again
+ */
+function createStrategicTurnOrder(players: Player[], roundNumber: number): Player[] {
+  const active = players.filter(p => !p.isEliminated);
+  if (active.length <= 2) return [...active];
+
+  const imposters = active.filter(p => p.role === 'imposter');
+  const citizens = active.filter(p => p.role !== 'imposter');
+
+  // Randomize citizens and imposters separately
+  const shuffledCitizens = [...citizens].sort(() => Math.random() - 0.5);
+  const shuffledImposters = [...imposters].sort(() => Math.random() - 0.5);
+
+  const result: Player[] = [];
+  // Calculate ideal intervals to interleave imposters strategically among citizens
+  const totalSlots = active.length;
+  const numImposters = shuffledImposters.length;
+
+  if (numImposters === 0) {
+    return shuffledCitizens;
+  }
+
+  // Determine positions for imposters to prevent imposter bunching
+  // e.g. For 1 imposter in 4 players, avoid slot 0 (so Citizens lead the tone) unless high round
+  const imposterTargetIndices: number[] = [];
+  const spacing = Math.floor(totalSlots / (numImposters + 1));
+  for (let i = 1; i <= numImposters; i++) {
+    const rawIndex = i * spacing + (roundNumber % 2 === 0 ? 1 : 0);
+    const clampedIndex = Math.min(Math.max(1, rawIndex), totalSlots - 1);
+    imposterTargetIndices.push(clampedIndex);
+  }
+
+  let citizenIdx = 0;
+  let imposterIdx = 0;
+
+  for (let slot = 0; slot < totalSlots; slot++) {
+    if (imposterTargetIndices.includes(slot) && imposterIdx < shuffledImposters.length) {
+      result.push(shuffledImposters[imposterIdx++]);
+    } else if (citizenIdx < shuffledCitizens.length) {
+      result.push(shuffledCitizens[citizenIdx++]);
+    } else if (imposterIdx < shuffledImposters.length) {
+      result.push(shuffledImposters[imposterIdx++]);
+    }
+  }
+
+  return result;
+}
+
 export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
   players,
   activeModifier,
@@ -23,8 +74,10 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
   categoryName,
   onProceedToVoting
 }) => {
-  // Surviving players only
-  const activePlayers = players.filter(p => !p.isEliminated);
+  // Strategically ordered active players
+  const [orderedPlayers, setOrderedPlayers] = useState<Player[]>(() => 
+    createStrategicTurnOrder(players, roundNumber)
+  );
   
   const [speakerIndex, setSpeakerIndex] = useState(0);
   const [completedSpeakers, setCompletedSpeakers] = useState<string[]>([]);
@@ -35,15 +88,62 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 3-second Pre-Countdown State for current speaker
+  const [preCountdown, setPreCountdown] = useState<number | null>(3);
+  const preCountdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Interrogation prompt modal / card
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
 
-  const currentSpeaker = activePlayers[speakerIndex] || activePlayers[0];
-  const allSpoken = completedSpeakers.length >= activePlayers.length;
+  const currentSpeaker = orderedPlayers[speakerIndex] || orderedPlayers[0];
+  const allSpoken = completedSpeakers.length >= orderedPlayers.length;
 
-  // Countdown timer effect
+  // Function to initiate the 3-second pre-countdown before starting the turn timer
+  const startPreCountdown = (autoStart = true) => {
+    // Clear any existing timers
+    if (preCountdownTimerRef.current) clearInterval(preCountdownTimerRef.current);
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    setIsTimerRunning(false);
+    setTimeLeft(defaultSeconds);
+
+    if (!autoStart) {
+      setPreCountdown(null);
+      return;
+    }
+
+    setPreCountdown(3);
+    playCountdown(3);
+
+    let count = 3;
+    preCountdownTimerRef.current = setInterval(() => {
+      count -= 1;
+      if (count > 0) {
+        setPreCountdown(count);
+        playCountdown(count);
+      } else if (count === 0) {
+        setPreCountdown(0);
+        playCountdown(0); // Buzzer/Go beep!
+      } else {
+        if (preCountdownTimerRef.current) clearInterval(preCountdownTimerRef.current);
+        setPreCountdown(null);
+        // Start actual speaking timer
+        setIsTimerRunning(true);
+      }
+    }, 1000);
+  };
+
+  // Start pre-countdown automatically when current speaker changes or component mounts
   useEffect(() => {
-    if (isTimerRunning && timeLeft > 0) {
+    startPreCountdown(true);
+    return () => {
+      if (preCountdownTimerRef.current) clearInterval(preCountdownTimerRef.current);
+    };
+  }, [speakerIndex]);
+
+  // Speaking countdown timer effect (runs after pre-countdown reaches 0)
+  useEffect(() => {
+    if (isTimerRunning && timeLeft > 0 && preCountdown === null) {
       timerRef.current = setTimeout(() => {
         setTimeLeft(prev => {
           if (prev <= 4 && prev > 0) {
@@ -60,16 +160,22 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [isTimerRunning, timeLeft]);
+  }, [isTimerRunning, timeLeft, preCountdown]);
 
   const handleToggleTimer = () => {
-    setIsTimerRunning(!isTimerRunning);
+    // If paused during pre-countdown, cancel pre-countdown and pause
+    if (preCountdown !== null) {
+      if (preCountdownTimerRef.current) clearInterval(preCountdownTimerRef.current);
+      setPreCountdown(null);
+      setIsTimerRunning(false);
+    } else {
+      setIsTimerRunning(!isTimerRunning);
+    }
     triggerHaptic(20);
   };
 
   const handleResetTimer = () => {
-    setIsTimerRunning(false);
-    setTimeLeft(defaultSeconds);
+    startPreCountdown(true);
     triggerHaptic(20);
   };
 
@@ -83,18 +189,23 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
     }
 
     // Advance
-    if (speakerIndex < activePlayers.length - 1) {
+    if (speakerIndex < orderedPlayers.length - 1) {
       setSpeakerIndex(prev => prev + 1);
-      setTimeLeft(defaultSeconds);
-      setIsTimerRunning(false);
     }
   };
 
   const handleSelectSpeakerDirectly = (index: number) => {
     setSpeakerIndex(index);
-    setTimeLeft(defaultSeconds);
-    setIsTimerRunning(false);
     triggerHaptic(20);
+  };
+
+  const handleReshuffleOrder = () => {
+    playWhoosh();
+    triggerHaptic([30, 20, 40]);
+    const newlyOrdered = createStrategicTurnOrder(players, roundNumber + 1);
+    setOrderedPlayers(newlyOrdered);
+    setSpeakerIndex(0);
+    setCompletedSpeakers([]);
   };
 
   const handleDrawQuestion = () => {
@@ -115,9 +226,20 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
             Topic: <strong className="text-slate-200">{categoryName}</strong>
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
-          <Users className="h-3.5 w-3.5" />
-          <span>{activePlayers.length} in play</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleReshuffleOrder}
+            title="Strategically reshuffle turn order"
+            className="flex items-center gap-1 text-[11px] font-mono text-slate-400 hover:text-slate-200 px-2 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.08] transition-all"
+          >
+            <Shuffle className="h-3 w-3 text-rose-400" />
+            <span>Shuffle</span>
+          </button>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400 font-mono">
+            <Users className="h-3.5 w-3.5" />
+            <span>{orderedPlayers.length} in play</span>
+          </div>
         </div>
       </div>
 
@@ -143,9 +265,15 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
       {/* Main Director Card: Current Speaker */}
       <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-6 shadow-xl text-center space-y-4">
         <div>
-          <span className="text-[10px] uppercase tracking-widest text-slate-400 font-mono block mb-1">
-            Current Speaker
-          </span>
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <span className="text-[10px] uppercase tracking-widest text-slate-400 font-mono">
+              Speaker #{speakerIndex + 1} of {orderedPlayers.length}
+            </span>
+            <span className="text-[9px] font-mono uppercase bg-rose-500/10 text-rose-300 px-1.5 py-0.2 rounded border border-rose-500/20">
+              Strategic Order
+            </span>
+          </div>
+
           <h2 className="font-display text-3xl font-bold text-slate-100 tracking-tight">
             {currentSpeaker.name}
           </h2>
@@ -154,38 +282,57 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
           </p>
         </div>
 
-        {/* Turn Timer */}
-        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/80 border border-white/[0.08] max-w-xs mx-auto">
-          <div className="flex items-center gap-2 pl-2">
-            <Clock className="h-4 w-4 text-slate-400" />
-            <span className={`font-mono text-xl font-bold tracking-wider ${timeLeft <= 4 ? 'text-rose-400' : 'text-slate-100'}`}>
-              00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
-            </span>
-          </div>
+        {/* Turn Timer with 3-Second Pre-Countdown Display */}
+        <div className="p-3.5 rounded-xl bg-slate-950/80 border border-white/[0.08] max-w-xs mx-auto space-y-2">
+          {preCountdown !== null ? (
+            /* PRE-COUNTDOWN MODE */
+            <div className="py-2 space-y-1">
+              <div className="flex items-center justify-center gap-1.5 text-xs font-mono uppercase tracking-wider text-rose-400 font-bold">
+                <Zap className="h-3.5 w-3.5 animate-bounce" />
+                <span>Get Ready to Speak</span>
+              </div>
+              <div className="font-display font-black text-5xl text-rose-300 tracking-tight animate-pulse">
+                {preCountdown === 0 ? 'SPEAK!' : preCountdown}
+              </div>
+              <p className="text-[10px] text-slate-400 font-mono">
+                {preCountdown === 0 ? 'Timer starting now...' : `Starting in ${preCountdown}s...`}
+              </p>
+            </div>
+          ) : (
+            /* ACTIVE SPEAKING TIMER MODE */
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 pl-2">
+                <Clock className="h-4 w-4 text-slate-400" />
+                <span className={`font-mono text-xl font-bold tracking-wider ${timeLeft <= 4 ? 'text-rose-400 animate-pulse' : 'text-slate-100'}`}>
+                  00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
+                </span>
+              </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleToggleTimer}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                isTimerRunning
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  : 'bg-white/[0.06] text-slate-200 hover:bg-white/[0.1] border border-white/[0.08]'
-              }`}
-            >
-              {isTimerRunning ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-              <span>{isTimerRunning ? 'Pause' : 'Start'}</span>
-            </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleToggleTimer}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    isTimerRunning
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-white/[0.06] text-slate-200 hover:bg-white/[0.1] border border-white/[0.08]'
+                  }`}
+                >
+                  {isTimerRunning ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                  <span>{isTimerRunning ? 'Pause' : 'Start'}</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={handleResetTimer}
-              className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-white/[0.05]"
-              title="Reset timer"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={handleResetTimer}
+                  className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-white/[0.05]"
+                  title="Restart 3s pre-countdown & timer"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Next Speaker Button */}
@@ -195,7 +342,7 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
           onClick={handleNextSpeaker}
           className="w-full py-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-slate-100 font-semibold text-xs border border-white/[0.08] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
         >
-          <span>Next Speaker</span>
+          <span>{speakerIndex < orderedPlayers.length - 1 ? 'Next Speaker' : 'Finish Clue Round'}</span>
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -203,14 +350,17 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
       {/* Speaking Queue Order */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Turn Order</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-semibold uppercase tracking-wider text-[10px] font-mono">Turn Order</span>
+            <span className="text-[10px] text-slate-500">(Strategic Shuffle)</span>
+          </div>
           <span className="font-mono text-[11px] text-slate-400">
-            {completedSpeakers.length} of {activePlayers.length} Clues Given
+            {completedSpeakers.length} of {orderedPlayers.length} Clues Given
           </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-          {activePlayers.map((player, idx) => {
+          {orderedPlayers.map((player, idx) => {
             const isCurrent = idx === speakerIndex;
             const hasSpoken = completedSpeakers.includes(player.id);
             return (

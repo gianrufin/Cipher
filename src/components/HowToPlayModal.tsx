@@ -67,10 +67,10 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
           <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 space-y-1">
             <div className="flex items-center gap-2 text-sky-400 font-semibold text-xs uppercase tracking-wide">
               <MessageSquare className="h-3.5 w-3.5" />
-              <span>3. Face-to-Face Clues</span>
+              <span>3. Face-to-Face Clues & Speaker Countdown</span>
             </div>
             <p className="text-slate-300 text-xs leading-relaxed">
-              Players sit in a circle. In turn order, each person speaks ONE subtle clue about their word. Be clever: too obvious and the Imposter learns your word; too cryptic and you will look guilty.
+              Speaking turns are strategically shuffled to separate imposters. Each turn auto-begins with an audio <strong>3-second pre-countdown</strong> to prime the speaker before their turn timer ticks down. Give ONE subtle clue!
             </p>
           </div>
 
