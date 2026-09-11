@@ -4,6 +4,7 @@ import {
   RoundModifier, SessionStats, MatchSummary 
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
+import { selectNoRepeatPair } from './utils/wordHistory';
 import { Navbar } from './components/Navbar';
 import { SetupScreen } from './components/SetupScreen';
 import { PassAndRevealScreen } from './components/PassAndRevealScreen';
@@ -268,7 +269,7 @@ export default function App() {
     }
 
     const cat = availableCategories[Math.floor(Math.random() * availableCategories.length)];
-    const pair = cat.pairs[Math.floor(Math.random() * cat.pairs.length)];
+    const pair = selectNoRepeatPair(cat);
 
     const imposterCount = (players.filter(p => p.role === 'imposter').length || 1) as 1 | 2 | 3;
     const names = players.map(p => p.name);

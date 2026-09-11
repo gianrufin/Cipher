@@ -28,7 +28,10 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
   const [isRevealed, setIsRevealed] = useState(false);
   const [hasViewed, setHasViewed] = useState(false);
   const [holdProgress, setHoldProgress] = useState(0);
+  const [tapBlockedNotice, setTapBlockedNotice] = useState<string | null>(null);
   const holdTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const holdStartTimeRef = useRef<number>(0);
+  const noticeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const currentPlayer = players[currentIndex];
   const isLastPlayer = currentIndex === players.length - 1;
@@ -38,22 +41,33 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
     p => p.role === 'imposter' && p.id !== currentPlayer.id
   );
 
-  const startHold = () => {
+  const startHold = (e?: React.SyntheticEvent) => {
+    if (e && 'cancelable' in e && e.cancelable) {
+      // Don't prevent default on touch unless needed, but prevent text selection
+    }
     if (isRevealed) return;
-    triggerHaptic(30);
+    setTapBlockedNotice(null);
+    holdStartTimeRef.current = Date.now();
+    triggerHaptic(25);
 
     let progress = 0;
-    const interval = 25;
-    const step = 100 / (400 / interval); // 400ms hold
+    const totalDuration = 480; // 480ms hold duration required
+    const interval = 20;
+    const step = 100 / (totalDuration / interval);
+
+    if (holdTimerRef.current) clearInterval(holdTimerRef.current);
 
     holdTimerRef.current = setInterval(() => {
       progress += step;
       if (progress >= 100) {
         clearInterval(holdTimerRef.current!);
+        holdTimerRef.current = null;
+        setHoldProgress(100);
         setIsRevealed(true);
         setHasViewed(true);
+        setTapBlockedNotice(null);
         playReveal();
-        triggerHaptic([40, 50, 60]);
+        triggerHaptic([40, 50, 70]);
       } else {
         setHoldProgress(progress);
       }
@@ -65,18 +79,21 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
       clearInterval(holdTimerRef.current);
       holdTimerRef.current = null;
     }
-    setHoldProgress(0);
-  };
 
-  const handleManualToggle = () => {
+    // Check if the user let go before completing the hold
     if (!isRevealed) {
-      setIsRevealed(true);
-      setHasViewed(true);
-      playReveal();
-      triggerHaptic([40, 50, 60]);
-    } else {
-      setIsRevealed(false);
-      triggerHaptic(20);
+      const elapsed = Date.now() - holdStartTimeRef.current;
+      setHoldProgress(0);
+
+      // If they tapped quickly without holding, display accidental tap protection warning
+      if (elapsed > 30 && elapsed < 450) {
+        triggerHaptic(30);
+        setTapBlockedNotice('Accidental tap blocked. Press & HOLD firmly for 0.5s to reveal!');
+        if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+        noticeTimerRef.current = setTimeout(() => {
+          setTapBlockedNotice(null);
+        }, 3200);
+      }
     }
   };
 
@@ -84,6 +101,7 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
     setIsRevealed(false);
     setHasViewed(false);
     setHoldProgress(0);
+    setTapBlockedNotice(null);
     playWhoosh();
     triggerHaptic(30);
 
@@ -137,8 +155,16 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
               </div>
             </div>
 
-            {/* Hold to Reveal Touch Target */}
-            <div className="w-full pt-2">
+            {/* Accidental Tap Prevention Warning Toast */}
+            {tapBlockedNotice && (
+              <div className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold animate-shake">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+                <span>{tapBlockedNotice}</span>
+              </div>
+            )}
+
+            {/* Hold to Reveal Touch Target (ONLY TAP & HOLD, NOT TAP OR HOLD) */}
+            <div className="w-full pt-1">
               <button
                 id="hold-reveal-secret-btn"
                 type="button"
@@ -147,26 +173,38 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
                 onMouseLeave={cancelHold}
                 onTouchStart={startHold}
                 onTouchEnd={cancelHold}
-                onClick={handleManualToggle}
-                className="relative w-full py-7 px-5 rounded-2xl bg-[#0c101a] border border-white/[0.1] hover:border-white/[0.2] text-white shadow-xl active:scale-[0.99] transition-all overflow-hidden flex flex-col items-center justify-center gap-2.5 group cursor-pointer"
+                onTouchCancel={cancelHold}
+                onContextMenu={(e) => e.preventDefault()}
+                className="relative w-full py-7 px-5 rounded-2xl bg-[#0c101a] border border-white/[0.1] hover:border-white/[0.2] text-white shadow-xl active:scale-[0.99] transition-all overflow-hidden flex flex-col items-center justify-center gap-2.5 group cursor-pointer select-none touch-none"
               >
                 {/* Hold Progress Bar Overlay */}
                 {holdProgress > 0 && (
                   <div
-                    className="absolute inset-0 bg-rose-600/20 transition-all pointer-events-none"
+                    className="absolute inset-0 bg-rose-600/30 transition-all pointer-events-none"
                     style={{ height: `${holdProgress}%` }}
                   />
                 )}
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.04] text-rose-400 border border-white/[0.08] group-hover:scale-105 transition-transform">
-                  <Eye className="h-5 w-5" />
+                {/* Circular ring / lock indicator */}
+                <div className="relative flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.04] text-rose-400 border border-white/[0.08] group-hover:scale-105 transition-transform">
+                  {holdProgress > 0 ? (
+                    <Unlock className="h-5 w-5 text-rose-300 animate-pulse" />
+                  ) : (
+                    <Lock className="h-5 w-5 text-rose-400" />
+                  )}
+                  {holdProgress > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-rose-500 text-white font-mono text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow">
+                      {Math.round(holdProgress)}%
+                    </span>
+                  )}
                 </div>
+
                 <div className="z-10 text-center">
                   <span className="font-display font-bold text-sm tracking-wide text-slate-100 block">
-                    TAP OR HOLD TO REVEAL
+                    {holdProgress > 0 ? 'KEEP HOLDING DOWN...' : 'PRESS & HOLD TO REVEAL'}
                   </span>
-                  <span className="text-[11px] text-slate-400">
-                    Tilt away from others before revealing
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    Hold firmly for 0.5s • Quick tap disabled to protect privacy
                   </span>
                 </div>
               </button>

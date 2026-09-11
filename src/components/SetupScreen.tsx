@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { 
   Users, UserPlus, Trash2, Shuffle, Sparkles, 
   Settings2, Flame, Eye, EyeOff, BookOpen, AlertCircle, Compass,
-  ShieldAlert, Vote
+  ShieldAlert, Vote, Calendar, RotateCcw, CheckCircle2, ShieldCheck
 } from 'lucide-react';
 import { GameMode, VotingStyle, WordCategory, WordPair } from '../types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from '../data/wordPacks';
+import { selectNoRepeatPair, getVaultStats, resetPlayedPairsHistory } from '../utils/wordHistory';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
 
 interface SetupScreenProps {
@@ -47,6 +48,21 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('random');
   const [errorMessage, setErrorMessage] = useState('');
+  const [vaultStats, setVaultStats] = useState(() => getVaultStats(BUILT_IN_CATEGORIES, customPairs));
+  const [resetFeedback, setResetFeedback] = useState(false);
+
+  // Update vault stats when customPairs change
+  React.useEffect(() => {
+    setVaultStats(getVaultStats(BUILT_IN_CATEGORIES, customPairs));
+  }, [customPairs]);
+
+  const handleResetHistory = () => {
+    resetPlayedPairsHistory();
+    setVaultStats(getVaultStats(BUILT_IN_CATEGORIES, customPairs));
+    setResetFeedback(true);
+    triggerHaptic(30);
+    setTimeout(() => setResetFeedback(false), 2500);
+  };
 
   // Auto-adjust imposters count if player count shrinks
   React.useEffect(() => {
@@ -126,7 +142,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       return;
     }
 
-    const chosenPair = chosenCategory.pairs[Math.floor(Math.random() * chosenCategory.pairs.length)];
+    const chosenPair = selectNoRepeatPair(chosenCategory);
 
     playWhoosh();
     triggerHaptic([50, 40, 60]);
@@ -510,7 +526,53 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       </div>
 
       {/* 4. Category Selection */}
-      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-3.5">
+      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-4">
+        {/* Weekly Rotation & Vault Intelligence Badge */}
+        <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-3.5 space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
+              <Calendar className="h-4 w-4 text-rose-400" />
+              <span>{vaultStats.weeklyInfo.label}</span>
+            </div>
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/20">
+              1,100+ Words in Vault
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-slate-300/90 flex-wrap gap-y-1.5 pt-1 border-t border-white/[0.04]">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span>
+                <strong className="text-slate-200">No-Repeat Shield:</strong>{' '}
+                {vaultStats.playedCount} played / {vaultStats.remainingCount} fresh remaining
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleResetHistory}
+              className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] px-2 py-1 rounded transition-colors"
+              title="Reset the played words record to refresh the no-repeat cycle"
+            >
+              {resetFeedback ? (
+                <>
+                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                  <span className="text-emerald-400 font-semibold">History Cleared!</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Reset Word History</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            The word pool is seeded deterministically every week to prioritize fresh word combinations and completely avoids repeats across matches.
+          </p>
+        </div>
+
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold uppercase tracking-wider text-slate-200">
             Word Category
