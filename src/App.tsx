@@ -130,6 +130,7 @@ export default function App() {
   // Launch Game from Setup
   const handleStartGame = ({
     playerNames,
+    playerPhotos,
     impostersCount,
     mode,
     accomplicesAware: isAccomplicesAware,
@@ -144,6 +145,7 @@ export default function App() {
     audience
   }: {
     playerNames: string[];
+    playerPhotos: string[];
     impostersCount: 1 | 2 | 3;
     mode: GameMode;
     accomplicesAware: boolean;
@@ -243,6 +245,7 @@ export default function App() {
       return {
         id: `p-${idx}-${Date.now()}`,
         name,
+        avatarPhoto: playerPhotos[idx],
         role: assignedRole,
         secretWord: isImposter
           ? (mode === 'decoy' ? imposterWord : '')
@@ -382,6 +385,10 @@ export default function App() {
       }
       return updated;
     });
+    setPlayers(current => current.map(player => ({ ...player, avatarPhoto: undefined })));
+    setEliminatedPlayer(null);
+    setPendingElimination(null);
+    setEliminationQueue([]);
     setPhase('game_stats');
   };
 
@@ -413,9 +420,17 @@ export default function App() {
 
     const imposterCount = (players.filter(p => p.role === 'imposter').length || 1) as 1 | 2 | 3;
     const names = players.map(p => p.name);
+    const photos = players.map(p => p.avatarPhoto).filter((photo): photo is string => Boolean(photo));
+
+    if (photos.length !== players.length) {
+      setSetupPlayers(names);
+      setPhase('setup');
+      return;
+    }
 
     handleStartGame({
       playerNames: names,
+      playerPhotos: photos,
       impostersCount: imposterCount,
       mode: gameMode,
       accomplicesAware,
@@ -483,6 +498,19 @@ export default function App() {
             onOpenCustomModal={() => setIsCustomModalOpen(true)}
             savedPlayers={savedPlayers}
             initialPlayers={setupPlayers}
+            initialConfig={{
+              impostersCount: Math.min(3, Math.max(1, players.filter(player => player.role === 'imposter').length || 1)) as 1 | 2 | 3,
+              mode: gameMode,
+              votingStyle,
+              accomplicesAware,
+              useModifiers: activeModifier !== null,
+              decoyCount,
+              eliminationsPerVote,
+              specialRoles,
+              audience: activeAudience,
+              difficulty: activeDifficulty,
+              selectedCategoryId: activeCategory.id
+            }}
             onOpenOnboarding={() => setPhase('onboarding')}
           />
         )}

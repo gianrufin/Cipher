@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight, Bomb, CheckCircle, EyeOff, Fingerprint, Flame,
-  HeartHandshake, LockKeyhole, ScanSearch, Shield, ShieldCheck, Smartphone
+  HeartHandshake, LockKeyhole, ScanSearch, Shield, ShieldCheck
 } from 'lucide-react';
 import { GameMode, Player, RoleType } from '../types';
 import { playReveal, playWhoosh, triggerHaptic } from '../utils/soundEffects';
+import { PlayerAvatar } from './PlayerAvatar';
 
 interface PassAndRevealScreenProps {
   players: Player[];
@@ -102,9 +103,7 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
       <div className="flex-1 flex items-center py-8">
         {!isRevealed ? (
           <section className="w-full text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-stone-400">
-              <Smartphone className="h-6 w-6" />
-            </div>
+            <PlayerAvatar name={currentPlayer.name} src={currentPlayer.avatarPhoto} className="mx-auto h-24 w-24 border-2 border-white/10 text-2xl shadow-xl" />
             <p className="cipher-kicker mt-6">Eyes only</p>
             <h1 className="font-display text-4xl font-black tracking-tight text-stone-50 mt-2">Pass to {currentPlayer.name}</h1>
             <p className="text-sm text-stone-500 mt-3">Shield the screen, then hold below to decrypt.</p>

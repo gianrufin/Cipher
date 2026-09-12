@@ -37,7 +37,7 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
               <span>1. Single-Device Secret Pass</span>
             </div>
             <p className="text-slate-300 text-xs leading-relaxed">
-              Pass the device to each player in sequence. Each player holds down the touch shield to reveal their role and secret word in private.
+              Add a name and take a fresh in-app selfie for every player, then pass the device in sequence. Selfies stay in memory only and are erased at the result screen. Each player holds down the touch shield to reveal their role and secret word in private.
             </p>
           </div>
 

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, EyeOff, RotateCcw, Vote, Zap } from 'lucide-react';
 import { EliminationsPerVote, Player, VotingStyle } from '../types';
 import { playCountdown, playVote, playWhoosh, triggerHaptic } from '../utils/soundEffects';
+import { PlayerAvatar } from './PlayerAvatar';
 
 interface DiscussionAndVotingProps {
   players: Player[];
@@ -191,11 +192,17 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
           {secretStep === 'results' && (
             <div className="cipher-panel space-y-4 p-5 text-center">
               <p className="cipher-kicker">Ballot results</p>
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {rankedPlayers.map(player => {
                   const selected = !hasCutoffTie && rankedTargets.some(target => target.id === player.id);
                   const votes = secretVotes[player.id] || 0;
-                  return <div key={player.id} className={`flex justify-between rounded-lg border px-3 py-2 text-xs ${selected ? 'border-rose-500 bg-rose-500/10 text-white' : 'border-white/[0.06] text-slate-300'}`}><span>{player.name}</span><span className="font-mono text-slate-400">{votes} vote{votes === 1 ? '' : 's'}</span></div>;
+                  return (
+                    <div key={player.id} className={`rounded-2xl border p-2 text-center ${selected ? 'border-rose-500 bg-rose-500/10 text-white' : 'border-white/[0.06] text-slate-300'}`}>
+                      <PlayerAvatar name={player.name} src={player.avatarPhoto} className="mx-auto aspect-square w-full border border-white/10 text-lg" />
+                      <span className="mt-2 block truncate text-[11px] font-bold">{player.name}</span>
+                      <span className="mt-0.5 block font-mono text-[9px] text-slate-400">{votes} vote{votes === 1 ? '' : 's'}</span>
+                    </div>
+                  );
                 })}
               </div>
               {hasCutoffTie ? (
@@ -220,14 +227,16 @@ const PlayerChoices = ({ players, selectedIds, disabledId, onSelect }: {
   disabledId?: string;
   onSelect: (id: string) => void;
 }) => (
-  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
     {players.map(player => {
       const selectedIndex = selectedIds.indexOf(player.id);
       const disabled = player.id === disabledId;
       return (
-        <button key={player.id} type="button" disabled={disabled} onClick={() => onSelect(player.id)} className={`flex items-center justify-between rounded-xl border p-3.5 text-left disabled:cursor-not-allowed disabled:opacity-25 ${selectedIndex >= 0 ? 'border-rose-500 bg-[#160c10]' : 'border-white/[0.08] bg-[#0c101a]'}`}>
-          <span className="text-sm font-bold text-slate-100">{player.name}{disabled ? ' (You)' : ''}</span>
-          {selectedIndex >= 0 && <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white">{selectedIds.length > 1 ? selectedIndex + 1 : <Check className="h-3.5 w-3.5" />}</span>}
+        <button key={player.id} type="button" disabled={disabled} onClick={() => onSelect(player.id)} className={`relative rounded-2xl border p-2 text-center disabled:cursor-not-allowed disabled:opacity-25 ${selectedIndex >= 0 ? 'border-rose-500 bg-[#160c10] shadow-[0_0_20px_rgba(244,63,94,0.12)]' : 'border-white/[0.08] bg-[#0c101a]'}`}>
+          <PlayerAvatar name={player.name} src={player.avatarPhoto} className="aspect-square w-full border border-white/10 text-xl" />
+          {selectedIndex >= 0 && <span className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#160c10] bg-rose-500 text-[11px] font-black text-white">{selectedIds.length > 1 ? selectedIndex + 1 : <Check className="h-3.5 w-3.5" />}</span>}
+          <span className="mt-2 block truncate text-[11px] font-bold text-slate-100">{player.name}</span>
+          {disabled && <span className="mt-0.5 block text-[8px] font-mono uppercase text-slate-500">Your ballot</span>}
         </button>
       );
     })}

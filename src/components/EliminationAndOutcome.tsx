@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Bomb, Flame, ScanSearch, Shield, Sparkles } from 'lucide-react';
+import { ArrowRight, ScanSearch, Sparkles } from 'lucide-react';
 import { MatchSummary, Player, RoleType } from '../types';
 import { playElimination, playImposterWin, playVictory, triggerHaptic } from '../utils/soundEffects';
+import { PlayerAvatar } from './PlayerAvatar';
 
 interface EliminationAndOutcomeProps {
   eliminatedPlayer: Player;
@@ -122,9 +123,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
       {subPhase === 'reveal' && (
         <section className="cipher-panel p-6 sm:p-8 text-center">
           <p className="cipher-kicker">Vote locked / Identity exposed</p>
-          <div className="mx-auto mt-6 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-stone-300">
-            {eliminatedPlayer.role === 'anarchist' ? <Bomb className="h-6 w-6" /> : eliminatedPlayer.role === 'imposter' ? <Flame className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
-          </div>
+          <PlayerAvatar name={eliminatedPlayer.name} src={eliminatedPlayer.avatarPhoto} className="mx-auto mt-6 h-28 w-28 border-2 border-white/10 text-3xl shadow-xl" />
           <h1 className="font-display text-4xl font-black tracking-tight text-stone-50 mt-5">{eliminatedPlayer.name}</h1>
           <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${tone}`}>
             {ROLE_LABELS[eliminatedPlayer.role]}
