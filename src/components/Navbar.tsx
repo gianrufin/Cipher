@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, HelpCircle, RotateCcw, Users, BarChart3, Compass } from 'lucide-react';
+import { Volume2, VolumeX, HelpCircle, RotateCcw, Users, BarChart3, Compass, Moon, Sun } from 'lucide-react';
 import { isSoundEnabled, setSoundEnabled } from '../utils/soundEffects';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -23,6 +23,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   hasSessionStats
 }) => {
   const [sound, setSound] = React.useState(isSoundEnabled());
+  const [theme, setTheme] = React.useState<'light' | 'dark'>(() =>
+    document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'
+  );
 
   const toggleSound = () => {
     const next = !sound;
@@ -30,12 +33,23 @@ export const Navbar: React.FC<NavbarProps> = ({
     setSoundEnabled(next);
   };
 
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem('cipher_theme', next);
+    } catch {
+      // Theme still applies for the current session when storage is unavailable.
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#0b0b09]/88 backdrop-blur-xl px-4 py-3">
+    <header className="cipher-navbar sticky top-0 z-40 w-full px-4 py-3">
       <div className="mx-auto flex max-w-lg items-center justify-between">
         {/* Brand Mark */}
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ff6846] border border-[#ff896f] shadow-lg shadow-black/30">
+          <div className="cipher-brand-mark flex h-9 w-9 items-center justify-center rounded-2xl">
             <div className="relative flex items-center justify-center">
               <div className="h-4 w-4 rounded-full border border-stone-950/70 flex items-center justify-center">
                 <div className="h-1.5 w-1.5 rounded-full bg-stone-950" />
@@ -44,11 +58,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-1.5 leading-none">
-              <span className="font-display font-black text-base tracking-wider text-slate-100 uppercase">
+              <span className="cipher-brand-name font-display font-black text-base tracking-wider uppercase">
                 CIPHER<span className="text-[#ff6846]">.</span>
               </span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-white/[0.08] bg-white/[0.04] text-[9px] font-mono font-semibold tracking-widest text-slate-400 uppercase">
-                Field game
+              <span className="cipher-brand-tag hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-mono font-semibold tracking-widest uppercase">
+                Puzzle game
               </span>
             </div>
           </div>
@@ -65,6 +79,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* In-App PWA Install Action */}
           <PWAInstallButton variant="nav" />
+
+          <button
+            id="nav-theme-toggle-btn"
+            type="button"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            className="cipher-nav-button flex h-8 w-8 items-center justify-center rounded-lg"
+          >
+            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
 
           {hasSessionStats && onOpenStats && (
             <button

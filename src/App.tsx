@@ -18,6 +18,7 @@ import { HowToPlayModal } from './components/HowToPlayModal';
 import { CustomPackModal } from './components/CustomPackModal';
 import { BodyguardDecision } from './components/BodyguardDecision';
 import { calculateMatchScores, updateCareerStats } from './utils/scoring';
+import { CipherAtmosphere } from './components/CipherAtmosphere';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -397,7 +398,8 @@ export default function App() {
   };
 
   return (
-    <div className="cipher-shell min-h-screen text-slate-100 flex flex-col font-sans antialiased selection:bg-[#ff6846] selection:text-stone-950">
+    <div className="cipher-shell min-h-screen flex flex-col font-sans antialiased selection:bg-[#ff6846] selection:text-stone-950">
+      <CipherAtmosphere />
       {/* Universal Header Navbar */}
       <Navbar
         onOpenRules={() => setIsRulesOpen(true)}
@@ -410,7 +412,7 @@ export default function App() {
       />
 
       {/* Main Screen Router */}
-      <main className="flex-1 flex flex-col">
+      <main className="cipher-content flex-1 flex flex-col">
         {phase === 'onboarding' && (
           <GameOnboarding
             onComplete={() => setPhase('setup')}
