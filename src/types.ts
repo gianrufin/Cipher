@@ -18,6 +18,8 @@ export interface SpecialRoleConfig {
 export type GameMode = 'decoy' | 'blind';
 
 export type VotingStyle = 'open' | 'blind';
+export type WordDifficulty = 'easy' | 'standard' | 'tricky';
+export type WordAudience = 'family' | 'barkada' | 'mixed';
 
 export interface Player {
   id: string;
@@ -31,12 +33,15 @@ export interface Player {
   votesAgainst: number;
   intel?: string;
   powerUsed?: boolean;
+  roundsSurvived?: number;
+  successfulActions?: number;
 }
 
 export interface WordPair {
   wordA: string;
   wordB: string;
   hint?: string;
+  difficulty?: WordDifficulty;
 }
 
 export interface WordCategory {
@@ -45,6 +50,25 @@ export interface WordCategory {
   iconName: string;
   description: string;
   pairs: WordPair[];
+  audiences?: WordAudience[];
+}
+
+export interface PlayerMatchScore {
+  playerId: string;
+  name: string;
+  role: RoleType;
+  points: number;
+  reasons: string[];
+}
+
+export interface PlayerCareerStats {
+  name: string;
+  gamesPlayed: number;
+  wins: number;
+  totalPoints: number;
+  currentStreak: number;
+  bestStreak: number;
+  roleWins: Partial<Record<RoleType, number>>;
 }
 
 export interface SessionStats {
@@ -64,6 +88,8 @@ export interface MatchSummary {
   winner: 'citizens' | 'imposters' | 'anarchist';
   winReason: string;
   specialWinnerName?: string;
+  bonusPlayerId?: string;
+  playerScores?: PlayerMatchScore[];
 }
 
 export type GamePhase =

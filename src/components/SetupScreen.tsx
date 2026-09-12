@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
-import { 
-  Users, UserPlus, Trash2, Shuffle, Sparkles, 
-  Settings2, Flame, Eye, EyeOff, BookOpen, AlertCircle, Compass,
-  ShieldAlert, Vote, Calendar, RotateCcw, CheckCircle2, ShieldCheck,
-  ChevronDown, ScanSearch, Bomb, HeartHandshake, BadgeHelp
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft, ArrowRight, BadgeHelp, Bomb, BookOpen, Check, ChevronRight,
+  EyeOff, Flame, HeartHandshake, ScanSearch, ShieldCheck, Sparkles,
+  Trash2, UserPlus, Users, Vote, WandSparkles
 } from 'lucide-react';
-import { GameMode, VotingStyle, WordCategory, WordPair, SpecialRoleConfig } from '../types';
-import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from '../data/wordPacks';
-import { selectNoRepeatPair, getVaultStats, resetPlayedPairsHistory } from '../utils/wordHistory';
+import {
+  GameMode, SpecialRoleConfig, VotingStyle, WordAudience,
+  WordCategory, WordDifficulty, WordPair
+} from '../types';
+import { BUILT_IN_CATEGORIES } from '../data/wordPacks';
+import { selectNoRepeatPair } from '../utils/wordHistory';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
 
 interface SetupScreenProps {
@@ -22,6 +24,8 @@ interface SetupScreenProps {
     category: WordCategory;
     selectedPair: WordPair;
     specialRoles: SpecialRoleConfig;
+    difficulty: WordDifficulty;
+    audience: WordAudience;
   }) => void;
   customPairs: WordPair[];
   onOpenCustomModal: () => void;
@@ -29,170 +33,106 @@ interface SetupScreenProps {
   onOpenOnboarding: () => void;
 }
 
-const DEFAULT_NAMES = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Casey', 'Morgan'];
+const STEPS = ['Players', 'Game style', 'Roles', 'Word vault', 'Review'];
+const EMPTY_ROLES: SpecialRoleConfig = { anarchist: false, inspector: false, sleeper: false, bodyguard: false };
+const FAMILY_CATEGORY_IDS = new Set(['pinoy_everyday', 'food_beverage', 'places_travel', 'creatures_nature', 'sports_hobbies']);
+
+const difficultyCopy: Record<WordDifficulty, string> = {
+  easy: 'Broad, familiar pairs that younger players can recognize quickly.',
+  standard: 'Everyday concepts with enough overlap for a balanced bluff.',
+  tricky: 'Close relationships that reward careful clues, rather than obscure vocabulary.'
+};
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
-  onStartGame,
-  customPairs,
-  onOpenCustomModal,
-  savedPlayers,
-  onOpenOnboarding
+  onStartGame, customPairs, onOpenCustomModal, onOpenOnboarding
 }) => {
-  const [playerNames, setPlayerNames] = useState<string[]>(
-    savedPlayers.length >= 3 ? savedPlayers : DEFAULT_NAMES
-  );
+  const [step, setStep] = useState(0);
+  const [playerNames, setPlayerNames] = useState<string[]>([]);
   const [newPlayerName, setNewPlayerName] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [impostersCount, setImpostersCount] = useState<1 | 2 | 3>(1);
   const [mode, setMode] = useState<GameMode>('decoy');
+  const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
   const [accomplicesAware, setAccomplicesAware] = useState(true);
   const [useModifiers, setUseModifiers] = useState(false);
   const [useDoubleAgentDecoy, setUseDoubleAgentDecoy] = useState(false);
-  const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('random');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [vaultStats, setVaultStats] = useState(() => getVaultStats(BUILT_IN_CATEGORIES, customPairs));
-  const [resetFeedback, setResetFeedback] = useState(false);
-  const [specialRolesOpen, setSpecialRolesOpen] = useState(true);
-  const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>({
-    anarchist: false,
-    inspector: false,
-    sleeper: false,
-    bodyguard: false
-  });
+  const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>(EMPTY_ROLES);
+  const [audience, setAudience] = useState<WordAudience>('family');
+  const [difficulty, setDifficulty] = useState<WordDifficulty>('easy');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('pinoy_everyday');
 
   const isLargeLobby = playerNames.length >= 7;
+  const maxImposters = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
+  const missingPlayers = Math.max(0, 4 - playerNames.length);
 
-  // Update vault stats when customPairs change
-  React.useEffect(() => {
-    setVaultStats(getVaultStats(BUILT_IN_CATEGORIES, customPairs));
-  }, [customPairs]);
+  useEffect(() => {
+    if (impostersCount > maxImposters) setImpostersCount(maxImposters as 1 | 2 | 3);
+    if (!isLargeLobby) setSpecialRoles(EMPTY_ROLES);
+  }, [impostersCount, isLargeLobby, maxImposters]);
 
-  const handleResetHistory = () => {
-    resetPlayedPairsHistory();
-    setVaultStats(getVaultStats(BUILT_IN_CATEGORIES, customPairs));
-    setResetFeedback(true);
-    triggerHaptic(30);
-    setTimeout(() => setResetFeedback(false), 2500);
-  };
-
-  // Auto-adjust imposters count if player count shrinks
-  React.useEffect(() => {
-    const maxAllowed = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
-    if (impostersCount > maxAllowed) {
-      setImpostersCount(maxAllowed as 1 | 2 | 3);
-    }
-  }, [playerNames.length, impostersCount]);
-
-  React.useEffect(() => {
-    if (!isLargeLobby) {
-      setSpecialRoles({ anarchist: false, inspector: false, sleeper: false, bodyguard: false });
-    }
-  }, [isLargeLobby]);
-
-  const handleAddPlayer = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const clean = newPlayerName.trim();
-    if (!clean) {
-      const nextNum = playerNames.length + 1;
-      const autoName = `Player ${nextNum}`;
-      setPlayerNames([...playerNames, autoName]);
-      triggerHaptic(20);
-      return;
-    }
-    if (playerNames.some(p => p.toLowerCase() === clean.toLowerCase())) {
-      setErrorMessage(`Player "${clean}" is already added.`);
-      return;
-    }
-    if (playerNames.length >= 16) {
-      setErrorMessage('Maximum 16 players for a single device round.');
-      return;
-    }
-    setPlayerNames([...playerNames, clean]);
-    setNewPlayerName('');
-    setErrorMessage('');
-    triggerHaptic(30);
-  };
-
-  const handleRemovePlayer = (index: number) => {
-    if (playerNames.length <= 3) {
-      setErrorMessage('At least 3 players are required to play.');
-      return;
-    }
-    setPlayerNames(playerNames.filter((_, i) => i !== index));
-    setErrorMessage('');
-    triggerHaptic(20);
-  };
-
-  const handleQuickPreset = (count: number) => {
-    const pool = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Casey', 'Morgan', 'Riley', 'Avery', 'Rowan', 'Dakota'];
-    setPlayerNames(pool.slice(0, count));
-    triggerHaptic(30);
-  };
-
-  const handleLaunch = () => {
-    if (playerNames.length < 3) {
-      setErrorMessage('Social deduction requires at least 3 players.');
-      return;
-    }
-
-    const specialRoleCount = Object.values(specialRoles).filter(Boolean).length;
-    if (specialRoleCount > playerNames.length - impostersCount) {
-      setErrorMessage('There are not enough non-Imposter seats for the selected special roles.');
-      return;
-    }
-
-    // Determine category & pair
-    let availableCategories = [...BUILT_IN_CATEGORIES];
-    if (customPairs.length > 0) {
-      availableCategories.push({
+  const categories = useMemo(() => {
+    const all: WordCategory[] = [...BUILT_IN_CATEGORIES];
+    if (customPairs.length) {
+      all.push({
         id: 'custom_pack',
-        name: 'Custom Word Pack',
+        name: 'Custom Pack',
         iconName: 'BookOpen',
-        description: 'User created words and inside jokes.',
+        description: 'Your own words and inside jokes.',
+        audiences: ['barkada', 'mixed'],
         pairs: customPairs
       });
     }
 
-    let chosenCategory: WordCategory;
-    if (selectedCategoryId === 'random') {
-      chosenCategory = availableCategories[Math.floor(Math.random() * availableCategories.length)];
-    } else {
-      chosenCategory = availableCategories.find(c => c.id === selectedCategoryId) || availableCategories[0];
-    }
+    return all
+      .filter(category => {
+        if (audience === 'mixed') return true;
+        if (category.audiences?.includes(audience)) return true;
+        if (audience === 'family') return FAMILY_CATEGORY_IDS.has(category.id);
+        return category.id !== 'science_space' && category.id !== 'history_myths';
+      })
+      .map(category => ({
+        ...category,
+        pairs: category.pairs.filter(pair => pair.difficulty
+          ? pair.difficulty === difficulty
+          : difficulty === 'standard')
+      }))
+      .filter(category => category.pairs.length > 0);
+  }, [audience, customPairs, difficulty]);
 
-    if (!chosenCategory.pairs || chosenCategory.pairs.length === 0) {
-      setErrorMessage('Selected category has no word pairs.');
+  useEffect(() => {
+    if (selectedCategoryId !== 'random' && !categories.some(category => category.id === selectedCategoryId)) {
+      setSelectedCategoryId(categories[0]?.id || 'random');
+    }
+  }, [categories, selectedCategoryId]);
+
+  const addPlayer = (event: React.FormEvent) => {
+    event.preventDefault();
+    const clean = newPlayerName.trim();
+    if (!clean) {
+      setErrorMessage('Enter a name before adding a player.');
       return;
     }
-
-    const chosenPair = selectNoRepeatPair(chosenCategory);
-
-    playWhoosh();
-    triggerHaptic([50, 40, 60]);
-
-    onStartGame({
-      playerNames,
-      impostersCount,
-      mode,
-      accomplicesAware,
-      useModifiers,
-      useDoubleAgentDecoy: playerNames.length >= 4 ? useDoubleAgentDecoy : false,
-      votingStyle,
-      category: chosenCategory,
-      selectedPair: chosenPair,
-      specialRoles: isLargeLobby ? specialRoles : {
-        anarchist: false,
-        inspector: false,
-        sleeper: false,
-        bodyguard: false
-      }
-    });
+    if (playerNames.some(name => name.toLocaleLowerCase() === clean.toLocaleLowerCase())) {
+      setErrorMessage(`${clean} is already in this group.`);
+      return;
+    }
+    if (playerNames.length >= 16) {
+      setErrorMessage('Cipher supports up to 16 players on one device.');
+      return;
+    }
+    setPlayerNames(current => [...current, clean]);
+    setNewPlayerName('');
+    setErrorMessage('');
+    triggerHaptic(25);
   };
 
-  const maxImposters = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
+  const removePlayer = (index: number) => {
+    setPlayerNames(current => current.filter((_, playerIndex) => playerIndex !== index));
+    setErrorMessage('');
+    triggerHaptic(18);
+  };
 
   const applyRecommendedRoles = () => {
-    if (!isLargeLobby) return;
     setImpostersCount(playerNames.length >= 10 ? 3 : 2);
     setSpecialRoles({
       inspector: true,
@@ -201,628 +141,395 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       anarchist: playerNames.length >= 12
     });
     setUseDoubleAgentDecoy(false);
-    setSpecialRolesOpen(true);
-    triggerHaptic([30, 30, 50]);
+    triggerHaptic([25, 25, 45]);
   };
 
+  const canContinue = step !== 0 || playerNames.length >= 4;
+
+  const continueSetup = () => {
+    if (!canContinue) return;
+    setErrorMessage('');
+    setStep(current => Math.min(STEPS.length - 1, current + 1));
+    triggerHaptic(18);
+  };
+
+  const launch = () => {
+    const reservedSeats = Object.values(specialRoles).filter(Boolean).length + (useDoubleAgentDecoy ? 1 : 0);
+    if (reservedSeats > playerNames.length - impostersCount) {
+      setErrorMessage('Reduce the Imposter count or remove one optional role. Every selected role needs its own seat.');
+      setStep(2);
+      return;
+    }
+    if (!categories.length) {
+      setErrorMessage('No word pairs match this audience and difficulty yet.');
+      setStep(3);
+      return;
+    }
+    const category = selectedCategoryId === 'random'
+      ? categories[Math.floor(Math.random() * categories.length)]
+      : categories.find(item => item.id === selectedCategoryId) || categories[0];
+
+    playWhoosh();
+    triggerHaptic([45, 35, 60]);
+    onStartGame({
+      playerNames,
+      impostersCount,
+      mode,
+      accomplicesAware,
+      useModifiers,
+      useDoubleAgentDecoy,
+      votingStyle,
+      category,
+      selectedPair: selectNoRepeatPair(category),
+      specialRoles,
+      difficulty,
+      audience
+    });
+  };
+
+  const playerGuidance = missingPlayers
+    ? `${missingPlayers} more player${missingPlayers === 1 ? '' : 's'} needed`
+    : playerNames.length >= 7
+    ? 'Large Lobby Roles unlocked'
+    : 'Minimum reached. Ready to continue';
+
   const roleCards = [
-    { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Sees a private radar clue that includes at least one Imposter seat.', tone: 'sky' },
-    { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'May reveal once to cancel an elimination and force a new clue round.', tone: 'lime' },
-    { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the Citizen word, but secretly wins with the Imposters.', tone: 'violet' },
-    { key: 'anarchist' as const, name: 'Anarchist', team: 'Neutral', icon: Bomb, copy: 'Wins alone if the table votes them out.', tone: 'amber' }
+    { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Receives private radar intel.' },
+    { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'Cancels one elimination.' },
+    { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the Citizen word.' },
+    { key: 'anarchist' as const, name: 'Anarchist', team: 'Neutral', icon: Bomb, copy: 'Wins by getting voted out.' }
   ];
 
   return (
-    <div className="w-full max-w-lg mx-auto pb-28 pt-5 px-4 space-y-5">
-      {/* Session Header Card */}
-      <div className="relative overflow-hidden rounded-[28px] bg-[#151512] border border-white/[0.1] p-6 shadow-2xl space-y-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold tracking-widest uppercase text-[#ff8065] mb-3">
-              <Flame className="h-3 w-3" /> Offline social deduction
-            </div>
-            <h1 className="font-display text-4xl font-black text-stone-100 tracking-[-0.04em] leading-none">
-              Read the room.
-            </h1>
-            <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
-              One phone. Private roles. Public suspicion. Build your cast and put every clue under pressure.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            id="hero-onboarding-btn"
-            onClick={onOpenOnboarding}
-            className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-xs font-semibold text-slate-300 transition-colors active:scale-95"
-          >
-            <Compass className="h-3.5 w-3.5 text-rose-400" />
-            <span>Rules</span>
-          </button>
+    <div className="w-full max-w-lg mx-auto min-h-[calc(100svh-61px)] px-4 pt-5 pb-28 flex flex-col">
+      <header className="mb-6">
+        <div className="flex items-center justify-between cipher-kicker">
+          <span>New session</span>
+          <button type="button" onClick={onOpenOnboarding} className="text-[#ff8065]">How to play</button>
         </div>
-
-        {/* Quick Party Size Presets */}
-        <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/[0.06]">
-          <span className="text-[11px] text-slate-400 font-mono tracking-wider uppercase">Party Size</span>
-          <div className="flex gap-1.5">
-            {[4, 5, 6, 8, 10].map(count => (
-              <button
-                key={count}
-                type="button"
-                onClick={() => handleQuickPreset(count)}
-                className={`px-2.5 py-1 text-xs font-mono rounded-lg transition-all border ${
-                  playerNames.length === count
-                    ? 'bg-rose-600 border-rose-500 text-white font-bold shadow-sm'
-                    : 'bg-white/[0.03] border-white/[0.08] text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
-                }`}
-              >
-                {count}P
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 1. Players Section */}
-      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-3.5">
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-            <Users className="h-4 w-4 text-rose-400" />
-            <span>Player Roster ({playerNames.length})</span>
-          </label>
-          <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Tap tag to remove</span>
-        </div>
-
-        {/* Add Player Input */}
-        <form onSubmit={handleAddPlayer} className="flex gap-2">
-          <input
-            id="player-name-input"
-            type="text"
-            placeholder="Enter player name..."
-            value={newPlayerName}
-            onChange={(e) => setNewPlayerName(e.target.value)}
-            maxLength={18}
-            className="flex-1 rounded-xl border border-white/[0.08] bg-slate-950/80 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-rose-500 focus:outline-none transition-colors"
-          />
-          <button
-            id="add-player-btn"
-            type="submit"
-            className="flex items-center justify-center gap-1.5 px-4 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-slate-200 font-semibold text-xs active:scale-95 transition-all"
-          >
-            <UserPlus className="h-3.5 w-3.5 text-rose-400" />
-            <span>Add</span>
-          </button>
-        </form>
-
-        {/* Players Chips */}
-        <div className="flex flex-wrap gap-1.5 pt-0.5">
-          {playerNames.map((name, index) => (
-            <div
-              key={index}
-              className="group flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 shadow-sm transition-all hover:border-rose-500/40 hover:bg-rose-500/5"
-            >
-              <span className="font-mono text-[10px] text-slate-500 font-medium">{index + 1}</span>
-              <span className="font-medium text-slate-200">{name}</span>
-              <button
-                type="button"
-                onClick={() => handleRemovePlayer(index)}
-                className="ml-0.5 text-slate-500 group-hover:text-rose-400 hover:scale-110 transition-transform"
-                title={`Remove ${name}`}
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
+        <div className="mt-4 grid grid-cols-5 gap-1.5">
+          {STEPS.map((label, index) => (
+            <div key={label}>
+              <div className={`h-1 rounded-full ${index <= step ? 'bg-[#ff6846]' : 'bg-white/[0.07]'}`} />
+              <span className={`hidden sm:block mt-2 text-[9px] font-mono uppercase ${index === step ? 'text-stone-200' : 'text-stone-600'}`}>{label}</span>
             </div>
           ))}
         </div>
-      </div>
+        <p className="mt-4 text-[10px] font-mono uppercase tracking-[0.18em] text-stone-600">
+          Step {step + 1} of {STEPS.length} / {STEPS[step]}
+        </p>
+      </header>
 
-      {/* 2. Imposter Count & Roles Config */}
-      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-4">
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-              Imposters
-            </span>
-            <span className="text-[11px] font-mono text-rose-400 font-medium">
-              {impostersCount} of {playerNames.length} Players
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {([1, 2, 3] as const).map((count) => {
-              const disabled = count > maxImposters;
-              const active = impostersCount === count;
-              return (
-                <button
-                  key={count}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    setImpostersCount(count);
-                    triggerHaptic(25);
-                  }}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    disabled
-                      ? 'border-white/[0.04] bg-white/[0.01] text-slate-600 cursor-not-allowed'
-                      : active
-                      ? 'border-rose-500 bg-rose-500/10 text-rose-200 shadow-sm'
-                      : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] text-slate-300'
-                  }`}
-                >
-                  <span className="text-sm font-display font-bold">{count} Imposter{count > 1 ? 's' : ''}</span>
-                  <span className="text-[10px] text-slate-500 mt-0.5">
-                    {disabled ? `Need ${count === 2 ? '5+' : '7+'} players` : count === 1 ? 'Classic' : 'Duo'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <main className="flex-1">
+        {step === 0 && (
+          <section className="animate-fadeIn">
+            <h1 className="font-display text-4xl font-black tracking-[-0.04em] text-stone-50">Who is playing?</h1>
+            <p className="mt-3 text-sm leading-6 text-stone-500">Add each player one at a time. You need at least four people around the table.</p>
 
-        {/* 3. Mechanics Mode: Decoy vs Blind */}
-        <div className="pt-3.5 border-t border-white/[0.06] space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-200 block">
-            Imposter Role Mode
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {/* Decoy Mode */}
-            <button
-              type="button"
-              onClick={() => {
-                setMode('decoy');
-                triggerHaptic(25);
-              }}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
-                mode === 'decoy'
-                  ? 'border-amber-500/80 bg-amber-500/10 text-amber-100'
-                  : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:border-white/[0.15]'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 font-bold text-xs text-amber-300 mb-1">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>Decoy Word (Recommended)</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-slate-300">
-                Imposter gets a plausible alternative word (e.g. <em>Latte</em> vs <em>Espresso</em>). Causes high-tension wordplay.
-              </p>
-            </button>
-
-            {/* Blind Mode */}
-            <button
-              type="button"
-              onClick={() => {
-                setMode('blind');
-                triggerHaptic(25);
-              }}
-              className={`p-3.5 rounded-xl border text-left transition-all ${
-                mode === 'blind'
-                  ? 'border-rose-500/80 bg-rose-500/10 text-rose-100'
-                  : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:border-white/[0.15]'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 font-bold text-xs text-rose-300 mb-1">
-                <EyeOff className="h-3.5 w-3.5" />
-                <span>Blind Phantom</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-slate-300">
-                Imposter sees only the category, with no word. Must deduce the theme from other players' clues.
-              </p>
-            </button>
-          </div>
-        </div>
-
-        {/* Accomplices aware toggle (if > 1 imposter) */}
-        {impostersCount > 1 && (
-          <div className="pt-3.5 border-t border-white/[0.06] flex items-center justify-between">
-            <div>
-              <span className="text-xs font-semibold text-slate-200 block">
-                Accomplices Know Each Other
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Imposters see partner names during role reveal
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setAccomplicesAware(!accomplicesAware);
-                triggerHaptic(20);
-              }}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                accomplicesAware ? 'bg-rose-600' : 'bg-slate-800'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  accomplicesAware ? 'translate-x-6' : 'translate-x-1'
-                }`}
+            <form onSubmit={addPlayer} className="mt-7 flex gap-2">
+              <input
+                autoFocus
+                value={newPlayerName}
+                onChange={event => setNewPlayerName(event.target.value)}
+                maxLength={18}
+                placeholder="Enter player name"
+                className="cipher-input min-w-0 flex-1"
               />
-            </button>
-          </div>
-        )}
-
-        {/* Double-Agent Decoy toggle */}
-        <div className="pt-3.5 border-t border-white/[0.06] flex items-center justify-between">
-          <div className="max-w-[78%]">
-            <span className="text-xs font-semibold text-slate-200 block flex items-center gap-1.5">
-              <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
-              <span>Double-Agent Decoy (Paranoid Citizen)</span>
-            </span>
-            <span className="text-[11px] text-slate-400 leading-relaxed block mt-0.5">
-              1 innocent Citizen is warned their word <em>might</em> be a decoy. They hold the real word, but play with hyper-paranoia!
-              {playerNames.length < 4 && (
-                <span className="text-rose-400/80 block mt-0.5"> (Requires 4+ players)</span>
-              )}
-            </span>
-          </div>
-          <button
-            type="button"
-            disabled={playerNames.length < 4}
-            onClick={() => {
-              setUseDoubleAgentDecoy(!useDoubleAgentDecoy);
-              triggerHaptic(20);
-            }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              playerNames.length < 4 
-                ? 'bg-slate-800/40 opacity-50 cursor-not-allowed'
-                : useDoubleAgentDecoy 
-                ? 'bg-amber-600' 
-                : 'bg-slate-800'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                useDoubleAgentDecoy && playerNames.length >= 4 ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Round Modifiers toggle */}
-        <div className="pt-3.5 border-t border-white/[0.06] flex items-center justify-between">
-          <div>
-            <span className="text-xs font-semibold text-slate-200 block flex items-center gap-1.5">
-              <Flame className="h-3.5 w-3.5 text-rose-400" />
-              <span>Round Modifiers</span>
-            </span>
-            <span className="text-[11px] text-slate-400">
-              Random dynamic rule twists per round (e.g. One-Word Limit)
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setUseModifiers(!useModifiers);
-              triggerHaptic(20);
-            }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              useModifiers ? 'bg-rose-600' : 'bg-slate-800'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                useModifiers ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-      </div>
-
-      {/* Large Lobby Special Roles */}
-      <section className={`rounded-2xl border overflow-hidden transition-all ${
-        isLargeLobby
-          ? 'border-lime-300/25 bg-[#11140d] shadow-[0_20px_70px_rgba(0,0,0,0.25)]'
-          : 'border-white/[0.06] bg-[#0c101a]/60 opacity-70'
-      }`}>
-        <button
-          type="button"
-          disabled={!isLargeLobby}
-          onClick={() => setSpecialRolesOpen(current => !current)}
-          className="w-full p-5 flex items-center justify-between gap-4 text-left disabled:cursor-not-allowed"
-        >
-          <div className="flex items-start gap-3">
-            <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${
-              isLargeLobby ? 'border-lime-300/30 bg-lime-300/10 text-lime-300' : 'border-white/10 text-slate-600'
-            }`}>
-              <BadgeHelp className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-sm font-black uppercase tracking-wider text-stone-100">
-                  Large Lobby Roles
-                </h2>
-                <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest ${
-                  isLargeLobby ? 'bg-lime-300 text-stone-950' : 'bg-white/5 text-slate-500'
-                }`}>
-                  {isLargeLobby ? 'Unlocked' : '7+ players'}
-                </span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-stone-500 mt-1">
-                {isLargeLobby
-                  ? `${Object.values(specialRoles).filter(Boolean).length} active. Build an asymmetric cast for a noisier table.`
-                  : 'Add one more layer of hidden motives when the table reaches seven players.'}
-              </p>
-            </div>
-          </div>
-          <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${specialRolesOpen ? 'rotate-180' : ''}`} />
-        </button>
-
-        {isLargeLobby && specialRolesOpen && (
-          <div className="border-t border-white/[0.07] p-4 sm:p-5 space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-lime-300/15 bg-lime-300/[0.04] p-3">
-              <div>
-                <p className="text-xs font-bold text-lime-200">Balanced cast for {playerNames.length} players</p>
-                <p className="text-[10px] text-stone-500 mt-0.5">
-                  {playerNames.length <= 8
-                    ? '2 Imposters + Inspector'
-                    : playerNames.length < 12
-                    ? `${playerNames.length >= 10 ? '3' : '2'} Imposters + Inspector + Sleeper${playerNames.length >= 10 ? ' + Bodyguard' : ''}`
-                    : '3 Imposters + all four special roles'}
-                </p>
-              </div>
-              <button type="button" onClick={applyRecommendedRoles} className="shrink-0 rounded-lg bg-lime-300 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-stone-950 active:scale-95 transition-transform">
-                Apply setup
+              <button type="submit" className="cipher-button-primary px-4" aria-label="Add player">
+                <UserPlus className="h-4 w-4" /> Add
               </button>
+            </form>
+
+            <div className={`mt-3 rounded-xl border px-3 py-2.5 text-xs ${missingPlayers ? 'border-white/10 text-stone-500' : 'border-lime-300/20 bg-lime-300/[0.05] text-lime-200'}`}>
+              {playerGuidance}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {roleCards.map(({ key, name, team, icon: Icon, copy, tone }) => {
-                const active = specialRoles[key];
-                const activeTone = tone === 'sky'
-                  ? 'border-sky-400/45 bg-sky-400/[0.08]'
-                  : tone === 'lime'
-                  ? 'border-lime-300/45 bg-lime-300/[0.08]'
-                  : tone === 'violet'
-                  ? 'border-violet-400/45 bg-violet-400/[0.08]'
-                  : 'border-amber-400/45 bg-amber-400/[0.08]';
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => {
-                      setSpecialRoles(current => ({ ...current, [key]: !current[key] }));
-                      if (key === 'sleeper') setUseDoubleAgentDecoy(false);
-                      triggerHaptic(20);
-                    }}
-                    className={`rounded-xl border p-3.5 text-left transition-all ${active ? activeTone : 'border-white/[0.08] bg-black/10 hover:border-white/20'}`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-stone-300" />
-                        <span className="text-xs font-bold text-stone-100">{name}</span>
-                      </div>
-                      <span className={`mt-0.5 h-4 w-7 rounded-full p-0.5 transition-colors ${active ? 'bg-lime-300' : 'bg-stone-800'}`}>
-                        <span className={`block h-3 w-3 rounded-full bg-stone-950 transition-transform ${active ? 'translate-x-3' : ''}`} />
-                      </span>
-                    </div>
-                    <p className="mt-2 text-[10px] font-mono uppercase tracking-widest text-stone-500">{team}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">{copy}</p>
+            <div className="mt-6 space-y-2">
+              {playerNames.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center">
+                  <Users className="mx-auto h-6 w-6 text-stone-700" />
+                  <p className="mt-3 text-xs text-stone-600">Your roster will appear here</p>
+                </div>
+              ) : playerNames.map((name, index) => (
+                <div key={name} className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3">
+                  <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="flex-1 text-sm font-bold text-stone-200">{name}</span>
+                  <button type="button" onClick={() => removePlayer(index)} aria-label={`Remove ${name}`} className="text-stone-600 hover:text-[#ff6846]">
+                    <Trash2 className="h-4 w-4" />
                   </button>
-                );
-              })}
+                </div>
+              ))}
             </div>
-          </div>
+          </section>
         )}
-      </section>
 
-      {/* 3. Voting Protocol: Open Accusation vs Blind Ballot */}
-      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-3.5">
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-            <Vote className="h-4 w-4 text-rose-400" />
-            <span>Voting Protocol</span>
-          </label>
-          <span className="text-[10px] font-mono uppercase text-slate-400">
-            {votingStyle === 'open' ? 'Face-to-Face' : 'Confidential'}
-          </span>
-        </div>
+        {step === 1 && (
+          <section className="space-y-7 animate-fadeIn">
+            <div>
+              <h1 className="font-display text-4xl font-black tracking-[-0.04em] text-stone-50">Set the tension.</h1>
+              <p className="mt-3 text-sm leading-6 text-stone-500">Choose how much information and privacy the table gets.</p>
+            </div>
+            <ChoiceGroup
+              label="Imposter information"
+              options={[
+                { id: 'decoy', title: 'Decoy word', copy: 'A related word keeps Imposters active in every clue.' },
+                { id: 'blind', title: 'Blind phantom', copy: 'Imposters only see the category. More chaotic.' }
+              ]}
+              value={mode}
+              onChange={value => setMode(value as GameMode)}
+            />
+            <ChoiceGroup
+              label="Voting protocol"
+              options={[
+                { id: 'open', title: 'Open accusation', copy: 'Debate, point together, then lock a suspect.' },
+                { id: 'blind', title: 'Secret ballot', copy: 'Pass the phone and vote privately.' }
+              ]}
+              value={votingStyle}
+              onChange={value => setVotingStyle(value as VotingStyle)}
+            />
+            <ToggleRow label="Round modifiers" copy="Add a random clue constraint each round." checked={useModifiers} onChange={setUseModifiers} />
+          </section>
+        )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Open Accusation */}
-          <button
-            type="button"
-            onClick={() => {
-              setVotingStyle('open');
-              triggerHaptic(20);
-            }}
-            className={`p-3.5 rounded-xl border text-left transition-all ${
-              votingStyle === 'open'
-                ? 'border-rose-500/80 bg-rose-500/10 text-white'
-                : 'border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-white/[0.15]'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
-                <Users className="h-3.5 w-3.5" />
-                <span>Open Accusation</span>
+        {step === 2 && (
+          <section className="space-y-6 animate-fadeIn">
+            <div>
+              <h1 className="font-display text-4xl font-black tracking-[-0.04em] text-stone-50">Build the cast.</h1>
+              <p className="mt-3 text-sm leading-6 text-stone-500">Cipher will assign every role privately after you start.</p>
+            </div>
+
+            <div>
+              <p className="cipher-kicker mb-3">Imposters</p>
+              <div className="grid grid-cols-3 gap-2">
+                {([1, 2, 3] as const).map(count => (
+                  <button
+                    key={count}
+                    type="button"
+                    disabled={count > maxImposters}
+                    onClick={() => setImpostersCount(count)}
+                    className={`rounded-2xl border p-4 text-center transition-all disabled:opacity-25 ${impostersCount === count ? 'border-[#ff6846] bg-[#ff6846]/10' : 'border-white/10 bg-white/[0.025]'}`}
+                  >
+                    <span className="font-display text-2xl font-black text-stone-100">{count}</span>
+                    <span className="block mt-1 text-[10px] uppercase tracking-wider text-stone-500">Imposter{count > 1 ? 's' : ''}</span>
+                  </button>
+                ))}
               </div>
-              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                Recommended
-              </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Debate in the circle, countdown 3-2-1 to point fingers simultaneously, then tap the accused player.
-            </p>
-          </button>
 
-          {/* Blind Ballot */}
-          <button
-            type="button"
-            onClick={() => {
-              setVotingStyle('blind');
-              triggerHaptic(20);
-            }}
-            className={`p-3.5 rounded-xl border text-left transition-all ${
-              votingStyle === 'blind'
-                ? 'border-sky-500/80 bg-sky-500/10 text-white'
-                : 'border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-white/[0.15]'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-sky-300">
-                <EyeOff className="h-3.5 w-3.5" />
-                <span>Blind Ballot</span>
+            {impostersCount > 1 && (
+              <ToggleRow label="Known accomplices" copy="Imposters see each other's names." checked={accomplicesAware} onChange={setAccomplicesAware} />
+            )}
+
+            <ToggleRow label="Paranoid Citizen" copy="One Citizen is warned that their word may be a decoy." checked={useDoubleAgentDecoy} onChange={setUseDoubleAgentDecoy} />
+
+            <div className={`rounded-[24px] border overflow-hidden ${isLargeLobby ? 'border-lime-300/25 bg-lime-300/[0.035]' : 'border-white/[0.07] bg-white/[0.02] opacity-60'}`}>
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex gap-3">
+                    <BadgeHelp className={`h-5 w-5 shrink-0 ${isLargeLobby ? 'text-lime-300' : 'text-stone-700'}`} />
+                    <div>
+                      <h2 className="text-sm font-black text-stone-100">Large Lobby Roles</h2>
+                      <p className="mt-1 text-[11px] leading-5 text-stone-500">{isLargeLobby ? 'Unlocked for this group.' : 'Requires 7 or more players.'}</p>
+                    </div>
+                  </div>
+                  {isLargeLobby && (
+                    <button type="button" onClick={applyRecommendedRoles} className="rounded-lg bg-lime-300 px-2.5 py-2 text-[9px] font-black uppercase tracking-wider text-stone-950">Recommended</button>
+                  )}
+                </div>
               </div>
-              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
-                Secret
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Pass the phone in private. Every player secretly votes on-screen. Tally and elimination are revealed together.
-            </p>
-          </button>
-        </div>
-      </div>
-
-      {/* 4. Category Selection */}
-      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-4">
-        {/* Weekly Rotation & Vault Intelligence Badge */}
-        <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-3.5 space-y-2">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
-              <Calendar className="h-4 w-4 text-rose-400" />
-              <span>{vaultStats.weeklyInfo.label}</span>
-            </div>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-300 border border-rose-500/20">
-              1,100+ Words in Vault
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-300/90 flex-wrap gap-y-1.5 pt-1 border-t border-white/[0.04]">
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-              <span>
-                <strong className="text-slate-200">No-Repeat Shield:</strong>{' '}
-                {vaultStats.playedCount} played / {vaultStats.remainingCount} fresh remaining
-              </span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleResetHistory}
-              className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] px-2 py-1 rounded transition-colors"
-              title="Reset the played words record to refresh the no-repeat cycle"
-            >
-              {resetFeedback ? (
-                <>
-                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                  <span className="text-emerald-400 font-semibold">History Cleared!</span>
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="h-3 w-3" />
-                  <span>Reset Word History</span>
-                </>
+              {isLargeLobby && (
+                <div className="grid grid-cols-2 gap-2 border-t border-white/[0.07] p-3">
+                  {roleCards.map(({ key, name, team, icon: Icon, copy }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-pressed={specialRoles[key]}
+                      onClick={() => {
+                        setSpecialRoles(current => ({ ...current, [key]: !current[key] }));
+                        if (key === 'sleeper') setUseDoubleAgentDecoy(false);
+                      }}
+                      className={`rounded-xl border p-3 text-left ${specialRoles[key] ? 'border-lime-300/35 bg-lime-300/[0.07]' : 'border-white/[0.07] bg-black/10'}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Icon className="h-4 w-4 text-stone-300" />
+                        {specialRoles[key] && <Check className="h-3.5 w-3.5 text-lime-300" />}
+                      </div>
+                      <p className="mt-3 text-xs font-bold text-stone-100">{name}</p>
+                      <p className="mt-1 text-[9px] font-mono uppercase text-stone-600">{team}</p>
+                      <p className="mt-2 text-[10px] leading-4 text-stone-500">{copy}</p>
+                    </button>
+                  ))}
+                </div>
               )}
-            </button>
-          </div>
-
-          <p className="text-[10px] text-slate-400 leading-relaxed">
-            The word pool is seeded deterministically every week to prioritize fresh word combinations and completely avoids repeats across matches.
-          </p>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-slate-200">
-            Word Category
-          </label>
-          <button
-            type="button"
-            onClick={onOpenCustomModal}
-            className="flex items-center gap-1 text-xs text-amber-400/90 hover:text-amber-300 transition-colors font-medium"
-          >
-            <BookOpen className="h-3.5 w-3.5" />
-            <span>Custom ({customPairs.length})</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {/* All Random */}
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCategoryId('random');
-              triggerHaptic(20);
-            }}
-            className={`p-3 rounded-xl border text-left transition-all ${
-              selectedCategoryId === 'random'
-                ? 'border-rose-500 bg-rose-500/10 text-white'
-                : 'border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-white/[0.15]'
-            }`}
-          >
-            <div className="flex items-center gap-1.5 mb-1 text-xs font-bold text-rose-400">
-              <Shuffle className="h-3.5 w-3.5" />
-              <span>Random Mix</span>
             </div>
-            <p className="text-[10px] text-slate-500">All packs combined</p>
-          </button>
+          </section>
+        )}
 
-          {/* Built-in Categories */}
-          {BUILT_IN_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => {
-                setSelectedCategoryId(cat.id);
-                triggerHaptic(20);
-              }}
-              className={`p-3 rounded-xl border text-left transition-all ${
-                selectedCategoryId === cat.id
-                  ? 'border-rose-500 bg-rose-500/10 text-white'
-                  : 'border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-white/[0.15]'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 mb-0.5 text-xs font-bold text-slate-200">
-                <span className="truncate">{cat.name}</span>
+        {step === 3 && (
+          <section className="space-y-7 animate-fadeIn">
+            <div>
+              <h1 className="font-display text-4xl font-black tracking-[-0.04em] text-stone-50">Choose the language of play.</h1>
+              <p className="mt-3 text-sm leading-6 text-stone-500">Difficulty measures how closely related the pair is, not how obscure the words are.</p>
+            </div>
+
+            <ChoiceGroup
+              label="Audience"
+              options={[
+                { id: 'family', title: 'Family', copy: 'Kid-friendly and immediately familiar.' },
+                { id: 'barkada', title: 'Barkada', copy: 'Filipino daily life and playful references.' },
+                { id: 'mixed', title: 'Mixed', copy: 'Philippine and global categories together.' }
+              ]}
+              value={audience}
+              onChange={value => setAudience(value as WordAudience)}
+              columns={3}
+            />
+
+            <div>
+              <p className="cipher-kicker mb-3">Difficulty</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(['easy', 'standard', 'tricky'] as WordDifficulty[]).map(level => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setDifficulty(level)}
+                    className={`rounded-xl border p-3 text-left capitalize ${difficulty === level ? 'border-[#ff6846] bg-[#ff6846]/10 text-stone-100' : 'border-white/[0.08] text-stone-500'}`}
+                  >
+                    <span className="text-xs font-bold">{level}</span>
+                  </button>
+                ))}
               </div>
-              <p className="text-[10px] text-slate-500">{cat.pairs.length} pairs</p>
+              <p className="mt-3 text-xs leading-5 text-stone-500">{difficultyCopy[difficulty]}</p>
+            </div>
+
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="cipher-kicker">Category</p>
+                <button type="button" onClick={onOpenCustomModal} className="flex items-center gap-1.5 text-[10px] font-bold text-[#ff8065]">
+                  <BookOpen className="h-3.5 w-3.5" /> Custom pack
+                </button>
+              </div>
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                <CategoryButton
+                  active={selectedCategoryId === 'random'}
+                  title="Random mix"
+                  copy={`${categories.reduce((total, category) => total + category.pairs.length, 0)} eligible pairs`}
+                  onClick={() => setSelectedCategoryId('random')}
+                />
+                {categories.map(category => (
+                  <CategoryButton
+                    key={category.id}
+                    active={selectedCategoryId === category.id}
+                    title={category.name}
+                    copy={`${category.pairs.length} ${difficulty} pairs · ${category.description}`}
+                    onClick={() => setSelectedCategoryId(category.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {step === 4 && (
+          <section className="space-y-6 animate-fadeIn">
+            <div>
+              <p className="cipher-kicker">Final check</p>
+              <h1 className="font-display text-4xl font-black tracking-[-0.04em] text-stone-50 mt-2">Ready the room.</h1>
+              <p className="mt-3 text-sm leading-6 text-stone-500">The exact word pair and every role stay hidden until the private pass.</p>
+            </div>
+
+            <div className="cipher-panel overflow-hidden">
+              <ReviewRow label="Players" value={`${playerNames.length} around the table`} />
+              <ReviewRow label="Game" value={`${mode === 'decoy' ? 'Decoy word' : 'Blind phantom'} · ${votingStyle === 'open' ? 'Open vote' : 'Secret ballot'}`} />
+              <ReviewRow label="Cast" value={`${impostersCount} Imposter${impostersCount > 1 ? 's' : ''} · ${Object.values(specialRoles).filter(Boolean).length} special roles`} />
+              <ReviewRow label="Words" value={`${audience} · ${difficulty} · ${selectedCategoryId === 'random' ? 'Random mix' : categories.find(category => category.id === selectedCategoryId)?.name || 'Pinoy Everyday'}`} />
+            </div>
+
+            <div className="rounded-2xl border border-[#ff6846]/20 bg-[#ff6846]/[0.05] p-4 flex gap-3">
+              <WandSparkles className="h-5 w-5 shrink-0 text-[#ff8065]" />
+              <p className="text-xs leading-5 text-stone-400">After the match, Cipher will award Match Points, update each player's local standings, and generate shareable result cards.</p>
+            </div>
+          </section>
+        )}
+
+        {errorMessage && (
+          <p className="mt-5 rounded-xl border border-[#ff6846]/25 bg-[#ff6846]/10 px-3 py-2 text-xs text-[#ff9a84]">{errorMessage}</p>
+        )}
+      </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/[0.08] bg-[#0b0b09]/92 p-4 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-lg gap-2">
+          {step > 0 && (
+            <button type="button" onClick={() => setStep(current => current - 1)} className="cipher-button-secondary px-4">
+              <ArrowLeft className="h-4 w-4" /> Back
             </button>
-          ))}
-
-          {/* Custom Category if exists */}
-          {customPairs.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedCategoryId('custom_pack');
-                triggerHaptic(20);
-              }}
-              className={`p-3 rounded-xl border text-left transition-all ${
-                selectedCategoryId === 'custom_pack'
-                  ? 'border-amber-500 bg-amber-500/10 text-white'
-                  : 'border-white/[0.08] bg-white/[0.02] text-slate-300 hover:border-white/[0.15]'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 mb-0.5 text-xs font-bold text-amber-300">
-                <BookOpen className="h-3.5 w-3.5" />
-                <span className="truncate">Custom Pack</span>
-              </div>
-              <p className="text-[10px] text-slate-500">{customPairs.length} pairs</p>
+          )}
+          {step < STEPS.length - 1 ? (
+            <button type="button" disabled={!canContinue} onClick={continueSetup} className="cipher-button-primary flex-1 disabled:opacity-30 disabled:cursor-not-allowed">
+              Continue <ArrowRight className="h-4 w-4" />
+            </button>
+          ) : (
+            <button type="button" onClick={launch} className="cipher-button-primary flex-1">
+              Start Cipher <Sparkles className="h-4 w-4" />
             </button>
           )}
         </div>
-      </div>
-
-      {/* Error Message */}
-      {errorMessage && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
-
-      {/* Fixed Sticky Launch Button */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 p-4 bg-[#0b0b09]/92 border-t border-white/[0.08] backdrop-blur-xl">
-        <div className="max-w-lg mx-auto space-y-2">
-          <button
-            id="start-cipher-game-btn"
-            type="button"
-            onClick={handleLaunch}
-            className="cipher-button-primary w-full font-display uppercase tracking-[0.12em] shadow-xl shadow-black/30"
-          >
-            <span>Start Game ({playerNames.length} Players)</span>
-          </button>
-        </div>
-      </div>
+      </footer>
     </div>
   );
 };
+
+const ChoiceGroup = ({
+  label, options, value, onChange, columns = 2
+}: {
+  label: string;
+  options: { id: string; title: string; copy: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  columns?: number;
+}) => (
+  <div>
+    <p className="cipher-kicker mb-3">{label}</p>
+    <div className={`grid gap-2 ${columns === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+      {options.map(option => (
+        <button key={option.id} type="button" onClick={() => onChange(option.id)} className={`rounded-2xl border p-4 text-left transition-all ${value === option.id ? 'border-[#ff6846] bg-[#ff6846]/10' : 'border-white/[0.08] bg-white/[0.025]'}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-black text-stone-100">{option.title}</span>
+            {value === option.id ? <Check className="h-4 w-4 text-[#ff8065]" /> : <ChevronRight className="h-4 w-4 text-stone-700" />}
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-stone-500">{option.copy}</p>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+const ToggleRow = ({ label, copy, checked, onChange }: { label: string; copy: string; checked: boolean; onChange: (checked: boolean) => void }) => (
+  <button type="button" onClick={() => onChange(!checked)} className="w-full flex items-center justify-between gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 text-left">
+    <div>
+      <p className="text-sm font-bold text-stone-200">{label}</p>
+      <p className="mt-1 text-[11px] leading-5 text-stone-500">{copy}</p>
+    </div>
+    <span className={`h-6 w-11 shrink-0 rounded-full p-1 transition-colors ${checked ? 'bg-[#ff6846]' : 'bg-stone-800'}`}>
+      <span className={`block h-4 w-4 rounded-full bg-stone-950 transition-transform ${checked ? 'translate-x-5' : ''}`} />
+    </span>
+  </button>
+);
+
+const CategoryButton = ({ active, title, copy, onClick }: { active: boolean; title: string; copy: string; onClick: () => void }) => (
+  <button type="button" onClick={onClick} className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${active ? 'border-[#ff6846] bg-[#ff6846]/10' : 'border-white/[0.07] bg-white/[0.02]'}`}>
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-xs font-bold text-stone-200">{title}</p>
+        <p className="mt-1 line-clamp-1 text-[10px] text-stone-600">{copy}</p>
+      </div>
+      {active && <Check className="h-4 w-4 shrink-0 text-[#ff8065]" />}
+    </div>
+  </button>
+);
+
+const ReviewRow = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] px-5 py-4 last:border-0">
+    <span className="cipher-kicker">{label}</span>
+    <span className="max-w-[68%] text-right text-xs font-bold capitalize text-stone-200">{value}</span>
+  </div>
+);
