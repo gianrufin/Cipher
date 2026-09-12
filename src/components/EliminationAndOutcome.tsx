@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, ScanSearch, Sparkles } from 'lucide-react';
-import { MatchSummary, Player, RoleType } from '../types';
+import { EjectionReveal, MatchSummary, Player } from '../types';
 import { playElimination, playImposterWin, playVictory, triggerHaptic } from '../utils/soundEffects';
 import { PlayerAvatar } from './PlayerAvatar';
 
@@ -13,26 +13,17 @@ interface EliminationAndOutcomeProps {
   roundsPlayed: number;
   eliminationQueue: Player[];
   queueIndex: number;
+  ejectionReveal: EjectionReveal;
   onContinueQueue: () => void;
   onNextRound: () => void;
   onGameOver: (summary: MatchSummary) => void;
 }
 
-const ROLE_LABELS: Record<RoleType, string> = {
-  citizen: 'Citizen',
-  decoy: 'Decoy Citizen',
-  imposter: 'Imposter',
-  anarchist: 'Anarchist',
-  inspector: 'Inspector',
-  sleeper: 'Sleeper Agent',
-  bodyguard: 'Bodyguard'
-};
-
 export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   eliminatedPlayer, players, trueCitizenWord, categoryName, roundsPlayed,
-  eliminationQueue, queueIndex, onContinueQueue, onNextRound, onGameOver
+  eliminationQueue, queueIndex, ejectionReveal, onContinueQueue, onNextRound, onGameOver
 }) => {
-  const [subPhase, setSubPhase] = useState<'reveal' | 'last_stand' | 'inspector_guess'>('reveal');
+  const [subPhase, setSubPhase] = useState<'reveal' | 'counter_handoff' | 'last_stand' | 'inspector_guess'>('reveal');
   const [wordGuess, setWordGuess] = useState('');
   const [inspectorGuessId, setInspectorGuessId] = useState<string | null>(null);
   const remaining = players.filter(player => !player.isEliminated);
@@ -75,13 +66,13 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
       finish('anarchist', `${eliminatedPlayer.name} baited the table into an elimination and wins alone.`, eliminatedPlayer.name);
       return;
     }
-    if (hasNextElimination) {
-      onContinueQueue();
+    if (remainingImposters.length === 0 && counterImposter) {
+      setSubPhase(ejectionReveal === 'classified' ? 'counter_handoff' : livingInspector ? 'inspector_guess' : 'last_stand');
+      triggerHaptic(30);
       return;
     }
-    if (remainingImposters.length === 0 && counterImposter) {
-      setSubPhase(livingInspector ? 'inspector_guess' : 'last_stand');
-      triggerHaptic(30);
+    if (hasNextElimination) {
+      onContinueQueue();
       return;
     }
     evaluateBoard();
@@ -108,7 +99,13 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
     }
   };
 
-  const tone = eliminatedPlayer.role === 'imposter'
+  const publicAnarchistWin = eliminatedPlayer.role === 'anarchist' && queueIndex === 0;
+  const revealAlignment = ejectionReveal === 'confirm' || publicAnarchistWin;
+  const isImposter = eliminatedPlayer.role === 'imposter';
+  const identityLabel = publicAnarchistWin ? 'ANARCHIST' : !revealAlignment ? 'IDENTITY CLASSIFIED' : isImposter ? 'IMPOSTER' : 'NOT AN IMPOSTER';
+  const tone = !revealAlignment
+    ? 'text-stone-300 border-white/15 bg-white/[0.04]'
+    : isImposter
     ? 'text-rose-300 border-rose-400/30 bg-rose-400/10'
     : eliminatedPlayer.role === 'anarchist'
     ? 'text-amber-300 border-amber-400/30 bg-amber-400/10'
@@ -122,30 +119,36 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
     <div className="w-full max-w-lg mx-auto px-4 py-7 sm:py-12 animate-fadeIn">
       {subPhase === 'reveal' && (
         <section className="cipher-panel p-6 sm:p-8 text-center">
-          <p className="cipher-kicker">Vote locked / Identity exposed</p>
+          <p className="cipher-kicker">Vote locked / Evidence filed</p>
           <PlayerAvatar name={eliminatedPlayer.name} src={eliminatedPlayer.avatarPhoto} className="mx-auto mt-6 h-28 w-28 border-2 border-white/10 text-3xl shadow-xl" />
           <h1 className="font-display text-4xl font-black tracking-tight text-stone-50 mt-5">{eliminatedPlayer.name}</h1>
           <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${tone}`}>
-            {ROLE_LABELS[eliminatedPlayer.role]}
+            {identityLabel}
           </div>
           <p className="mt-5 text-sm leading-6 text-stone-400">
-            {eliminatedPlayer.role === 'anarchist'
+            {publicAnarchistWin
               ? queueIndex === 0
                 ? 'The table walked into the wildcard trap.'
                 : 'The Anarchist was exposed, but not in the first elimination slot needed for a solo win.'
-              : eliminatedPlayer.role === 'imposter'
-              ? hasNextElimination
-                ? 'An Imposter was caught. The remaining queued identity resolves next.'
-                : 'If this was the final Imposter, their counter-play begins after this reveal.'
-              : eliminatedPlayer.role === 'sleeper'
-              ? 'The table removed an undercover Imposter ally.'
-              : eliminatedPlayer.role === 'decoy'
-              ? 'They were innocent, but unknowingly received the alternate word.'
-              : 'The table eliminated a member of the Citizen team.'}
+              : !revealAlignment
+              ? `${eliminatedPlayer.name} was ejected. Their alignment and the remaining Imposter count stay classified until the debrief.`
+              : isImposter
+              ? `${eliminatedPlayer.name} was an Imposter. ${remainingImposters.length} Imposter${remainingImposters.length === 1 ? '' : 's'} remaining.`
+              : `${eliminatedPlayer.name} was not an Imposter. ${remainingImposters.length} Imposter${remainingImposters.length === 1 ? '' : 's'} remaining.`}
           </p>
           <button type="button" onClick={proceedFromReveal} className="cipher-button-primary w-full mt-7">
             {hasNextElimination ? `Reveal next: ${eliminationQueue[queueIndex + 1].name}` : 'Resolve outcome'} <ArrowRight className="h-4 w-4" />
           </button>
+        </section>
+      )}
+
+      {subPhase === 'counter_handoff' && counterImposter && (
+        <section className="cipher-panel p-6 sm:p-8 text-center">
+          <p className="cipher-kicker">Private counter-action</p>
+          <PlayerAvatar name={counterImposter.name} src={counterImposter.avatarPhoto} className="mx-auto mt-6 h-24 w-24" />
+          <h1 className="font-display text-3xl font-black tracking-tight text-stone-50 mt-5">Pass to {counterImposter.name}</h1>
+          <p className="text-sm leading-6 text-stone-400 mt-3">Shield the screen from the table. The final Imposter gets a private counter-play even when ejection identities are classified.</p>
+          <button type="button" onClick={() => setSubPhase(livingInspector ? 'inspector_guess' : 'last_stand')} className="cipher-button-primary w-full mt-7">Open private counter-play <ArrowRight className="h-4 w-4" /></button>
         </section>
       )}
 

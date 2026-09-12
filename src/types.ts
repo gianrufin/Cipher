@@ -20,6 +20,8 @@ export type GameMode = 'decoy' | 'blind';
 
 export type VotingStyle = 'open' | 'blind';
 export type EliminationsPerVote = 1 | 2;
+export type EjectionReveal = 'confirm' | 'classified';
+export type GameConnectionMode = 'local' | 'online';
 export type WordDifficulty = 'easy' | 'standard' | 'tricky';
 export type WordAudience = 'family' | 'barkada' | 'mixed';
 
@@ -96,6 +98,8 @@ export interface MatchSummary {
 
 export type GamePhase =
   | 'onboarding'
+  | 'mode_select'
+  | 'online_room'
   | 'setup'
   | 'pass_prompt'
   | 'secret_reveal'

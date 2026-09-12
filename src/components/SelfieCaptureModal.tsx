@@ -111,7 +111,7 @@ export const SelfieCaptureModal: React.FC<SelfieCaptureModalProps> = ({ playerNa
 
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-lime-300/15 bg-lime-300/[0.04] p-3 text-[10px] leading-4 text-stone-400">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-lime-300" />
-          <span>This image stays inside the active game only. It is not saved to your gallery or browser storage and is erased when the match ends.</span>
+          <span>This image stays in memory for this group session, including rematches. It is never saved to your gallery or browser storage and disappears when the group ends or the page closes.</span>
         </div>
 
         {cameraState === 'error' ? (

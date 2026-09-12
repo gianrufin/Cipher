@@ -24,5 +24,10 @@ export const CipherAtmosphere: React.FC = () => (
         <span key={letter} style={{ '--letter-index': index } as React.CSSProperties}>{letter}</span>
       ))}
     </div>
+    <svg className="cipher-art mystery-thread" viewBox="0 0 800 900" fill="none">
+      <path className="cipher-art-accent" d="M24 150 270 320 128 580 520 710 754 470" />
+      <circle cx="24" cy="150" r="9" fill="currentColor"/><circle cx="270" cy="320" r="9" fill="currentColor"/><circle cx="128" cy="580" r="9" fill="currentColor"/><circle cx="520" cy="710" r="9" fill="currentColor"/>
+    </svg>
+    <div className="mystery-stamp">TOP SECRET</div>
   </div>
 );
