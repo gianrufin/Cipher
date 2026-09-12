@@ -60,6 +60,10 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
                 <span className="font-bold text-amber-300 block mb-0.5">Double-Agent Decoy (Optional Twist):</span>
                 One innocent Citizen is secretly told their word <em>might</em> be a decoy. They hold the true word, but must deduce if they are innocent while playing with hyper-paranoia!
               </div>
+              <div className="rounded-lg bg-sky-950/20 border border-sky-500/20 p-2.5">
+                <span className="font-bold text-sky-300 block mb-0.5">Large Lobby Roles (7+):</span>
+                The Inspector receives private radar intel. The Bodyguard has one public veto. The Sleeper Agent knows the Citizen word but wins with the Imposters. The neutral Anarchist wins alone by getting voted out.
+              </div>
             </div>
           </div>
 
@@ -81,7 +85,7 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
               <span>4. Open Accusation or Blind Ballot</span>
             </div>
             <p className="text-slate-300 text-xs leading-relaxed">
-              Use <strong>Open Accusation</strong> for live table debate with an audio 3-2-1 simultaneous finger point countdown, or <strong>Blind Ballot</strong> to pass the phone around for confidential voting. If an eliminated player is an Imposter, they get ONE final chance at the Last Stand!
+              Use <strong>Open Accusation</strong> for live table debate with an audio 3-2-1 simultaneous finger point countdown, or <strong>Blind Ballot</strong> to pass the phone around for confidential voting. A Bodyguard may veto before the identity reveal. A caught Imposter hunts the Inspector when one is alive, otherwise they attempt the Last Stand word guess.
             </p>
           </div>
 

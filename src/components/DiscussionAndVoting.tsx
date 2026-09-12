@@ -28,7 +28,7 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
 
   // 3-2-1 Simultaneous Pointing Countdown State
   const [countdownStep, setCountdownStep] = useState<number | null>(null);
-  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // For open vote: currently selected target for confirmation
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);

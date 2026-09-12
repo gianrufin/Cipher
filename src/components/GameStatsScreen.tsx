@@ -41,7 +41,13 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
 
   const totalSessionGames = sessionStats.gamesPlayed || 1;
   const citizenWinPercent = Math.round((sessionStats.citizenWins / totalSessionGames) * 100);
-  const imposterWinPercent = 100 - citizenWinPercent;
+  const imposterWinPercent = Math.round((sessionStats.imposterWins / totalSessionGames) * 100);
+  const anarchistWinPercent = Math.round(((sessionStats.anarchistWins || 0) / totalSessionGames) * 100);
+  const winnerTitle = winner === 'citizens'
+    ? 'CITIZENS VICTORY'
+    : winner === 'imposters'
+    ? 'IMPOSTERS VICTORY'
+    : 'ANARCHIST VICTORY';
 
   return (
     <div className="w-full max-w-lg mx-auto pb-28 pt-2 px-4 space-y-5 animate-fadeIn">
@@ -50,6 +56,8 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
         className={`rounded-2xl border p-6 shadow-xl text-center space-y-4 ${
           winner === 'citizens'
             ? 'border-emerald-500/30 bg-[#0a1410]'
+            : winner === 'anarchist'
+            ? 'border-amber-500/30 bg-[#171207]'
             : 'border-rose-500/30 bg-[#160c10]'
         }`}
       >
@@ -58,6 +66,8 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
             className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${
               winner === 'citizens'
                 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                : winner === 'anarchist'
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
                 : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
             }`}
           >
@@ -70,7 +80,7 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
             Mission Debrief
           </span>
           <h1 className="font-display text-3xl font-bold text-slate-100 mt-0.5">
-            {winner === 'citizens' ? 'CITIZENS VICTORY' : 'IMPOSTERS VICTORY'}
+            {winnerTitle}
           </h1>
           <p className="text-xs text-slate-300/90 mt-1.5 max-w-sm mx-auto leading-relaxed">
             {winReason}
@@ -202,7 +212,14 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
                 className="bg-rose-500 h-full transition-all duration-500"
                 style={{ width: `${imposterWinPercent}%` }}
               />
+              <div
+                className="bg-amber-400 h-full transition-all duration-500"
+                style={{ width: `${anarchistWinPercent}%` }}
+              />
             </div>
+            {(sessionStats.anarchistWins || 0) > 0 && (
+              <p className="text-right text-[10px] font-mono text-amber-400">Anarchist: {sessionStats.anarchistWins} ({anarchistWinPercent}%)</p>
+            )}
           </div>
         </div>
 
@@ -243,7 +260,7 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
                         : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                     }`}
                   >
-                    {p.role === 'imposter' ? 'IMPOSTER' : p.isDoubleAgentDecoy ? 'DOUBLE AGENT' : 'CITIZEN'}
+                    {p.isDoubleAgentDecoy ? 'PARANOID CITIZEN' : p.role.replace('_', ' ').toUpperCase()}
                   </span>
                 </div>
               </div>

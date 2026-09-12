@@ -1,4 +1,19 @@
-export type RoleType = 'citizen' | 'imposter' | 'accomplice';
+export type RoleType =
+  | 'citizen'
+  | 'imposter'
+  | 'anarchist'
+  | 'inspector'
+  | 'sleeper'
+  | 'bodyguard';
+
+export type SpecialRole = Exclude<RoleType, 'citizen' | 'imposter'>;
+
+export interface SpecialRoleConfig {
+  anarchist: boolean;
+  inspector: boolean;
+  sleeper: boolean;
+  bodyguard: boolean;
+}
 
 export type GameMode = 'decoy' | 'blind';
 
@@ -14,6 +29,8 @@ export interface Player {
   isEliminated: boolean;
   avatarSeed: number;
   votesAgainst: number;
+  intel?: string;
+  powerUsed?: boolean;
 }
 
 export interface WordPair {
@@ -34,6 +51,7 @@ export interface SessionStats {
   gamesPlayed: number;
   citizenWins: number;
   imposterWins: number;
+  anarchistWins: number;
   totalRoundsPlayed: number;
   totalImpostersCaught: number;
   lastStandHeists: number;
@@ -43,8 +61,9 @@ export interface MatchSummary {
   roundsPlayed: number;
   impostersCaughtThisMatch: number;
   totalImposters: number;
-  winner: 'citizens' | 'imposters';
+  winner: 'citizens' | 'imposters' | 'anarchist';
   winReason: string;
+  specialWinnerName?: string;
 }
 
 export type GamePhase =
@@ -55,6 +74,7 @@ export type GamePhase =
   | 'clue_round'
   | 'discussion'
   | 'voting'
+  | 'bodyguard_decision'
   | 'elimination_reveal'
   | 'imposter_last_stand'
   | 'game_stats';

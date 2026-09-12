@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   GamePhase, Player, WordCategory, WordPair, GameMode, VotingStyle,
-  RoundModifier, SessionStats, MatchSummary 
+  RoundModifier, SessionStats, MatchSummary, SpecialRoleConfig, RoleType
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
 import { selectNoRepeatPair } from './utils/wordHistory';
@@ -15,6 +15,7 @@ import { GameStatsScreen } from './components/GameStatsScreen';
 import { GameOnboarding } from './components/GameOnboarding';
 import { HowToPlayModal } from './components/HowToPlayModal';
 import { CustomPackModal } from './components/CustomPackModal';
+import { BodyguardDecision } from './components/BodyguardDecision';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -25,6 +26,7 @@ const INITIAL_SESSION_STATS: SessionStats = {
   gamesPlayed: 0,
   citizenWins: 0,
   imposterWins: 0,
+  anarchistWins: 0,
   totalRoundsPlayed: 0,
   totalImpostersCaught: 0,
   lastStandHeists: 0
@@ -58,7 +60,7 @@ export default function App() {
   const [sessionStats, setSessionStats] = useState<SessionStats>(() => {
     try {
       const saved = localStorage.getItem('cipher_session_stats');
-      return saved ? JSON.parse(saved) : INITIAL_SESSION_STATS;
+      return saved ? { ...INITIAL_SESSION_STATS, ...JSON.parse(saved) } : INITIAL_SESSION_STATS;
     } catch {
       return INITIAL_SESSION_STATS;
     }
@@ -87,6 +89,13 @@ export default function App() {
   const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
   const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
   const [useDoubleAgentDecoy, setUseDoubleAgentDecoy] = useState(false);
+  const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>({
+    anarchist: false,
+    inspector: false,
+    sleeper: false,
+    bodyguard: false
+  });
+  const [pendingElimination, setPendingElimination] = useState<Player | null>(null);
 
   // Save custom pairs to local storage
   const handleSaveCustomPairs = (updated: WordPair[]) => {
@@ -108,7 +117,8 @@ export default function App() {
     useDoubleAgentDecoy,
     votingStyle: chosenVotingStyle,
     category,
-    selectedPair
+    selectedPair,
+    specialRoles: selectedSpecialRoles
   }: {
     playerNames: string[];
     impostersCount: 1 | 2 | 3;
@@ -119,6 +129,7 @@ export default function App() {
     votingStyle: VotingStyle;
     category: WordCategory;
     selectedPair: WordPair;
+    specialRoles: SpecialRoleConfig;
   }) => {
     // Save player names for next time
     try {
@@ -141,6 +152,7 @@ export default function App() {
     setAccomplicesAware(isAccomplicesAware);
     setVotingStyle(chosenVotingStyle);
     setUseDoubleAgentDecoy(useDoubleAgentDecoy);
+    setSpecialRoles(selectedSpecialRoles);
     setRoundNumber(1);
     setMatchSummary(null);
 
@@ -163,24 +175,53 @@ export default function App() {
 
     // If Double-Agent Decoy is enabled, pick 1 innocent citizen to experience paranoid status
     const nonImposterIndices = indices.slice(impostersCount);
-    const doubleAgentIndex = (useDoubleAgentDecoy && nonImposterIndices.length > 0)
-      ? nonImposterIndices[Math.floor(Math.random() * nonImposterIndices.length)]
+    const roleQueue: RoleType[] = [];
+    if (selectedSpecialRoles.inspector) roleQueue.push('inspector');
+    if (selectedSpecialRoles.bodyguard) roleQueue.push('bodyguard');
+    if (selectedSpecialRoles.sleeper) roleQueue.push('sleeper');
+    if (selectedSpecialRoles.anarchist) roleQueue.push('anarchist');
+    const specialRoleByIndex = new Map<number, RoleType>();
+    roleQueue.forEach((role, queueIndex) => {
+      const playerIndex = nonImposterIndices[queueIndex];
+      if (playerIndex !== undefined) specialRoleByIndex.set(playerIndex, role);
+    });
+
+    const regularCitizenIndices = nonImposterIndices.filter(index => !specialRoleByIndex.has(index));
+    const doubleAgentIndex = (useDoubleAgentDecoy && regularCitizenIndices.length > 0)
+      ? regularCitizenIndices[Math.floor(Math.random() * regularCitizenIndices.length)]
       : -1;
+
+    const inspectorIndex = [...specialRoleByIndex.entries()].find(([, role]) => role === 'inspector')?.[0];
+    let inspectorIntel: string | undefined;
+    if (inspectorIndex !== undefined) {
+      const candidatePool = indices.filter(index => index !== inspectorIndex);
+      const guaranteedImposter = indices.find(index => imposterIndices.has(index))!;
+      const radarIndices = [guaranteedImposter];
+      for (const index of candidatePool) {
+        if (radarIndices.length >= Math.min(3, candidatePool.length)) break;
+        if (!radarIndices.includes(index)) radarIndices.push(index);
+      }
+      radarIndices.sort((a, b) => a - b);
+      inspectorIntel = `At least one Imposter is among seats ${radarIndices.map(index => `#${index + 1}`).join(', ')}.`;
+    }
 
     // Construct Player list
     const generatedPlayers: Player[] = playerNames.map((name, idx) => {
       const isImposter = imposterIndices.has(idx);
       const isDoubleAgent = idx === doubleAgentIndex;
+      const assignedRole = isImposter ? 'imposter' : (specialRoleByIndex.get(idx) || 'citizen');
       return {
         id: `p-${idx}-${Date.now()}`,
         name,
-        role: isImposter ? 'imposter' : 'citizen',
+        role: assignedRole,
         secretWord: isImposter ? (mode === 'decoy' ? imposterWord : '') : citizenWord,
         isDecoyWord: isImposter && mode === 'decoy',
         isDoubleAgentDecoy: isDoubleAgent,
         isEliminated: false,
         avatarSeed: idx,
-        votesAgainst: 0
+        votesAgainst: 0,
+        intel: assignedRole === 'inspector' ? inspectorIntel : undefined,
+        powerUsed: false
       };
     });
 
@@ -208,13 +249,35 @@ export default function App() {
     const target = players.find(p => p.id === playerId);
     if (!target) return;
 
+    const availableBodyguard = players.find(p => p.role === 'bodyguard' && !p.isEliminated && !p.powerUsed);
+    if (availableBodyguard) {
+      setPendingElimination(target);
+      setPhase('bodyguard_decision');
+      return;
+    }
+
+    finalizeElimination(target);
+  };
+
+  const finalizeElimination = (target: Player) => {
+
     // Update player state
-    const updated = players.map(p => 
-      p.id === playerId ? { ...p, isEliminated: true } : p
+    const updated = players.map(p =>
+      p.id === target.id ? { ...p, isEliminated: true } : p
     );
     setPlayers(updated);
     setEliminatedPlayer(target);
+    setPendingElimination(null);
     setPhase('elimination_reveal');
+  };
+
+  const handleBodyguardVeto = () => {
+    setPlayers(current => current.map(player =>
+      player.role === 'bodyguard' ? { ...player, powerUsed: true } : player
+    ));
+    setPendingElimination(null);
+    setRoundNumber(current => current + 1);
+    setPhase('clue_round');
   };
 
   // Next round if game continues
@@ -231,6 +294,7 @@ export default function App() {
         gamesPlayed: prev.gamesPlayed + 1,
         citizenWins: prev.citizenWins + (summary.winner === 'citizens' ? 1 : 0),
         imposterWins: prev.imposterWins + (summary.winner === 'imposters' ? 1 : 0),
+        anarchistWins: (prev.anarchistWins || 0) + (summary.winner === 'anarchist' ? 1 : 0),
         totalRoundsPlayed: prev.totalRoundsPlayed + summary.roundsPlayed,
         totalImpostersCaught: prev.totalImpostersCaught + summary.impostersCaughtThisMatch,
         lastStandHeists: prev.lastStandHeists + (summary.winReason.includes('Last Stand') ? 1 : 0)
@@ -283,7 +347,8 @@ export default function App() {
       useDoubleAgentDecoy,
       votingStyle,
       category: cat,
-      selectedPair: pair
+      selectedPair: pair,
+      specialRoles
     });
   };
 
@@ -293,10 +358,11 @@ export default function App() {
     setPassIndex(0);
     setEliminatedPlayer(null);
     setMatchSummary(null);
+    setPendingElimination(null);
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-sans antialiased selection:bg-rose-500 selection:text-white">
+    <div className="cipher-shell min-h-screen text-slate-100 flex flex-col font-sans antialiased selection:bg-[#ff6846] selection:text-stone-950">
       {/* Universal Header Navbar */}
       <Navbar
         onOpenRules={() => setIsRulesOpen(true)}
@@ -370,6 +436,18 @@ export default function App() {
             onGameOver={handleGameOver}
           />
         )}
+
+        {phase === 'bodyguard_decision' && pendingElimination && (() => {
+          const bodyguard = players.find(player => player.role === 'bodyguard' && !player.isEliminated && !player.powerUsed);
+          return bodyguard ? (
+            <BodyguardDecision
+              target={pendingElimination}
+              bodyguard={bodyguard}
+              onVeto={handleBodyguardVeto}
+              onProceed={() => finalizeElimination(pendingElimination)}
+            />
+          ) : null;
+        })()}
 
         {phase === 'game_stats' && matchSummary && (
           <GameStatsScreen
