@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   GamePhase, Player, WordCategory, WordPair, GameMode, VotingStyle,
   RoundModifier, SessionStats, MatchSummary, SpecialRoleConfig, RoleType,
-  PlayerCareerStats, WordAudience, WordDifficulty
+  EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
 import { selectNoRepeatPair } from './utils/wordHistory';
@@ -103,7 +103,8 @@ export default function App() {
   const [eliminatedPlayer, setEliminatedPlayer] = useState<Player | null>(null);
   const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
   const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
-  const [useDoubleAgentDecoy, setUseDoubleAgentDecoy] = useState(false);
+  const [decoyCount, setDecoyCount] = useState<0 | 1 | 2>(0);
+  const [eliminationsPerVote, setEliminationsPerVote] = useState<EliminationsPerVote>(1);
   const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>({
     anarchist: false,
     inspector: false,
@@ -111,6 +112,8 @@ export default function App() {
     bodyguard: false
   });
   const [pendingElimination, setPendingElimination] = useState<Player | null>(null);
+  const [eliminationQueue, setEliminationQueue] = useState<Player[]>([]);
+  const [eliminationQueueIndex, setEliminationQueueIndex] = useState(0);
   const [activeAudience, setActiveAudience] = useState<WordAudience>('family');
   const [activeDifficulty, setActiveDifficulty] = useState<WordDifficulty>('easy');
 
@@ -131,7 +134,8 @@ export default function App() {
     mode,
     accomplicesAware: isAccomplicesAware,
     useModifiers,
-    useDoubleAgentDecoy,
+    decoyCount: selectedDecoyCount,
+    eliminationsPerVote: selectedEliminationsPerVote,
     votingStyle: chosenVotingStyle,
     category,
     selectedPair,
@@ -144,7 +148,8 @@ export default function App() {
     mode: GameMode;
     accomplicesAware: boolean;
     useModifiers: boolean;
-    useDoubleAgentDecoy: boolean;
+    decoyCount: 0 | 1 | 2;
+    eliminationsPerVote: EliminationsPerVote;
     votingStyle: VotingStyle;
     category: WordCategory;
     selectedPair: WordPair;
@@ -173,12 +178,15 @@ export default function App() {
     setGameMode(mode);
     setAccomplicesAware(isAccomplicesAware);
     setVotingStyle(chosenVotingStyle);
-    setUseDoubleAgentDecoy(useDoubleAgentDecoy);
+    setDecoyCount(selectedDecoyCount);
+    setEliminationsPerVote(selectedEliminationsPerVote);
     setSpecialRoles(selectedSpecialRoles);
     setActiveDifficulty(difficulty);
     setActiveAudience(audience);
     setRoundNumber(1);
     setMatchSummary(null);
+    setEliminationQueue([]);
+    setEliminationQueueIndex(0);
 
     // Pick modifier if enabled
     if (useModifiers) {
@@ -197,7 +205,6 @@ export default function App() {
     }
     const imposterIndices = new Set(indices.slice(0, impostersCount));
 
-    // If Double-Agent Decoy is enabled, pick 1 innocent citizen to experience paranoid status
     const nonImposterIndices = indices.slice(impostersCount);
     const roleQueue: RoleType[] = [];
     if (selectedSpecialRoles.inspector) roleQueue.push('inspector');
@@ -211,9 +218,7 @@ export default function App() {
     });
 
     const regularCitizenIndices = nonImposterIndices.filter(index => !specialRoleByIndex.has(index));
-    const doubleAgentIndex = (useDoubleAgentDecoy && regularCitizenIndices.length > 0)
-      ? regularCitizenIndices[Math.floor(Math.random() * regularCitizenIndices.length)]
-      : -1;
+    const decoyIndices = new Set(regularCitizenIndices.slice(0, selectedDecoyCount));
 
     const inspectorIndex = [...specialRoleByIndex.entries()].find(([, role]) => role === 'inspector')?.[0];
     let inspectorIntel: string | undefined;
@@ -232,15 +237,17 @@ export default function App() {
     // Construct Player list
     const generatedPlayers: Player[] = playerNames.map((name, idx) => {
       const isImposter = imposterIndices.has(idx);
-      const isDoubleAgent = idx === doubleAgentIndex;
-      const assignedRole = isImposter ? 'imposter' : (specialRoleByIndex.get(idx) || 'citizen');
+      const assignedRole: RoleType = isImposter
+        ? 'imposter'
+        : specialRoleByIndex.get(idx) || (decoyIndices.has(idx) ? 'decoy' : 'citizen');
       return {
         id: `p-${idx}-${Date.now()}`,
         name,
         role: assignedRole,
-        secretWord: isImposter ? (mode === 'decoy' ? imposterWord : '') : citizenWord,
+        secretWord: isImposter
+          ? (mode === 'decoy' ? imposterWord : '')
+          : assignedRole === 'decoy' ? imposterWord : citizenWord,
         isDecoyWord: isImposter && mode === 'decoy',
-        isDoubleAgentDecoy: isDoubleAgent,
         isEliminated: false,
         avatarSeed: idx,
         votesAgainst: 0,
@@ -270,25 +277,8 @@ export default function App() {
     setPhase('voting');
   };
 
-  // Eliminate player
-  const handleEliminatePlayer = (playerId: string) => {
-    const target = players.find(p => p.id === playerId);
-    if (!target) return;
-
-    const availableBodyguard = players.find(p => p.role === 'bodyguard' && !p.isEliminated && !p.powerUsed);
-    if (availableBodyguard) {
-      setPendingElimination(target);
-      setPhase('bodyguard_decision');
-      return;
-    }
-
-    finalizeElimination(target);
-  };
-
-  const finalizeElimination = (target: Player) => {
-
-    // Update player state
-    const updated = players.map(p =>
+  const finalizeElimination = (target: Player, sourcePlayers = players) => {
+    const updated = sourcePlayers.map(p =>
       p.id === target.id ? { ...p, isEliminated: true } : p
     );
     setPlayers(updated);
@@ -297,19 +287,58 @@ export default function App() {
     setPhase('elimination_reveal');
   };
 
+  const beginQueuedElimination = (queue: Player[], index: number, sourcePlayers = players) => {
+    const target = queue[index];
+    if (!target) return;
+    setEliminationQueue(queue);
+    setEliminationQueueIndex(index);
+    const availableBodyguard = sourcePlayers.find(player =>
+      player.role === 'bodyguard' && !player.isEliminated && !player.powerUsed && player.id !== target.id
+    );
+    if (availableBodyguard) {
+      setPendingElimination(target);
+      setPhase('bodyguard_decision');
+    } else {
+      finalizeElimination(target, sourcePlayers);
+    }
+  };
+
+  const handleEliminatePlayers = (playerIds: string[]) => {
+    const queue = playerIds
+      .map(playerId => players.find(player => player.id === playerId))
+      .filter((player): player is Player => Boolean(player));
+    if (!queue.length) return;
+    beginQueuedElimination(queue, 0);
+  };
+
   const handleBodyguardVeto = () => {
-    const protectedCitizenTeam = pendingElimination && ['citizen', 'inspector', 'bodyguard'].includes(pendingElimination.role);
-    setPlayers(current => current.map(player => ({
+    const protectedCitizenTeam = pendingElimination && ['citizen', 'decoy', 'inspector', 'bodyguard'].includes(pendingElimination.role);
+    const updatedPlayers = players.map(player => ({
       ...player,
-      roundsSurvived: player.isEliminated ? player.roundsSurvived : (player.roundsSurvived || 0) + 1,
       ...(player.role === 'bodyguard' ? {
         powerUsed: true,
         successfulActions: (player.successfulActions || 0) + (protectedCitizenTeam ? 1 : 0)
       } : {})
-    })));
+    }));
+    setPlayers(updatedPlayers);
     setPendingElimination(null);
-    setRoundNumber(current => current + 1);
-    setPhase('clue_round');
+    const nextIndex = eliminationQueueIndex + 1;
+    if (eliminationQueue[nextIndex]) {
+      setEliminationQueueIndex(nextIndex);
+      finalizeElimination(eliminationQueue[nextIndex], updatedPlayers);
+    } else {
+      setPlayers(updatedPlayers.map(player => player.isEliminated
+        ? player
+        : { ...player, roundsSurvived: (player.roundsSurvived || 0) + 1 }
+      ));
+      setRoundNumber(current => current + 1);
+      setPhase('clue_round');
+    }
+  };
+
+  const handleContinueEliminationQueue = () => {
+    const nextIndex = eliminationQueueIndex + 1;
+    if (eliminationQueue[nextIndex]) beginQueuedElimination(eliminationQueue, nextIndex);
   };
 
   // Next round if game continues
@@ -391,7 +420,8 @@ export default function App() {
       mode: gameMode,
       accomplicesAware,
       useModifiers: activeModifier !== null,
-      useDoubleAgentDecoy,
+      decoyCount,
+      eliminationsPerVote,
       votingStyle,
       category: cat,
       selectedPair: pair,
@@ -409,6 +439,8 @@ export default function App() {
     setEliminatedPlayer(null);
     setMatchSummary(null);
     setPendingElimination(null);
+    setEliminationQueue([]);
+    setEliminationQueueIndex(0);
   };
 
   const handleRestartMatch = () => {
@@ -481,19 +513,24 @@ export default function App() {
           <DiscussionAndVoting
             players={players}
             initialVotingStyle={votingStyle}
-            onEliminatePlayer={handleEliminatePlayer}
+            eliminationsPerVote={eliminationsPerVote}
+            onEliminatePlayers={handleEliminatePlayers}
             onReturnToClues={() => setPhase('clue_round')}
           />
         )}
 
         {phase === 'elimination_reveal' && eliminatedPlayer && (
           <EliminationAndOutcome
+            key={`${eliminatedPlayer.id}-${eliminationQueueIndex}`}
             eliminatedPlayer={eliminatedPlayer}
             players={players}
             trueCitizenWord={trueCitizenWord}
             decoyWord={decoyWord}
             categoryName={activeCategory.name}
             roundsPlayed={roundNumber}
+            eliminationQueue={eliminationQueue}
+            queueIndex={eliminationQueueIndex}
+            onContinueQueue={handleContinueEliminationQueue}
             onNextRound={handleNextRound}
             onGameOver={handleGameOver}
           />
@@ -505,6 +542,7 @@ export default function App() {
             <BodyguardDecision
               target={pendingElimination}
               bodyguard={bodyguard}
+              hasNextTarget={Boolean(eliminationQueue[eliminationQueueIndex + 1])}
               onVeto={handleBodyguardVeto}
               onProceed={() => finalizeElimination(pendingElimination)}
             />

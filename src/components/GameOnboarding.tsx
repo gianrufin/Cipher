@@ -115,7 +115,7 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
     },
     {
       title: 'The Clue Round & Bluffing',
-      tagline: 'Give Just Enough Away — But Not Too Much',
+      tagline: 'Give Just Enough Away, But Not Too Much',
       icon: MessageSquare
     },
     {
@@ -396,10 +396,10 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                     <span className="text-[9px] font-mono text-slate-400">Majority</span>
                   </div>
                   <div className="font-display text-2xl font-bold text-white">
-                    "Espresso"
+                    "Mango"
                   </div>
                   <p className="text-xs text-emerald-200/80 leading-relaxed">
-                    You know the genuine secret word. Your goal is to give a clue that proves you belong, without revealing "Espresso" to the imposter!
+                    You know the genuine secret word. Your goal is to give a clue that proves you belong, without revealing "Mango" to the imposter!
                   </p>
                 </div>
               ) : (
@@ -411,10 +411,10 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                     <span className="text-[9px] font-mono text-rose-300 font-bold">Infiltrator</span>
                   </div>
                   <div className="font-display text-2xl font-bold text-white">
-                    "Latte"
+                    "Banana"
                   </div>
                   <p className="text-xs text-rose-200/80 leading-relaxed">
-                    You think your word is the true one! You might say "milky" or "foamy" — and instantly realize everyone else is giving clues about strong black shots!
+                    You think your word is the true one! You might say "yellow" or "long", then realize everyone else is giving clues about a sweet fruit with one large seed.
                   </p>
                 </div>
               )}
@@ -499,7 +499,7 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                 The Imposter's Last Stand
               </h2>
               <p className="text-xs text-slate-300/90 mt-1 max-w-sm mx-auto leading-relaxed">
-                When voting concludes, catching the imposter isn't the end.
+                Large groups can eliminate two ranked suspects, but catching the final Imposter is not always the end.
               </p>
             </div>
 
@@ -516,7 +516,7 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
-                Even if the room unmasks an Imposter, that Imposter gets <strong className="text-white">ONE FINAL GUESS</strong> at the Citizen secret word.
+                After the final Imposter is caught, they must first identify any living Inspector. A correct read unlocks <strong className="text-white">ONE FINAL GUESS</strong> at the Citizen secret word.
               </p>
 
               <div className="p-3 rounded-xl bg-slate-950/80 border border-white/[0.08] text-xs text-amber-200">

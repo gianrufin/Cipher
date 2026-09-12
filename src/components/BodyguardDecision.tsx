@@ -6,6 +6,7 @@ import { triggerHaptic } from '../utils/soundEffects';
 interface BodyguardDecisionProps {
   target: Player;
   bodyguard: Player;
+  hasNextTarget?: boolean;
   onVeto: () => void;
   onProceed: () => void;
 }
@@ -13,6 +14,7 @@ interface BodyguardDecisionProps {
 export const BodyguardDecision: React.FC<BodyguardDecisionProps> = ({
   target,
   bodyguard,
+  hasNextTarget = false,
   onVeto,
   onProceed
 }) => {
@@ -31,7 +33,7 @@ export const BodyguardDecision: React.FC<BodyguardDecisionProps> = ({
             The table chose {target.name}.
           </h1>
           <p className="text-sm leading-6 text-stone-400 mt-3 max-w-md">
-            The Bodyguard may reveal their shield now to cancel this elimination. The pardon is single-use and forces a new clue round.
+            The Bodyguard may reveal their shield now to protect this player. The shield is single-use, cannot protect the Bodyguard, and {hasNextTarget ? 'the next queued elimination will still continue.' : 'ends this vote without a reveal.'}
           </p>
         </div>
 

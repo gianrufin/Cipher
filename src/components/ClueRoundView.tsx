@@ -431,7 +431,7 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
           >
             <Vote className="h-4 w-4" />
             <span>
-              {allSpoken ? 'All Clues Given — Proceed to Vote' : 'Open Voting & Accusation'}
+              {allSpoken ? 'All Clues Given, Proceed to Vote' : 'Open Voting & Accusation'}
             </span>
           </button>
         </div>

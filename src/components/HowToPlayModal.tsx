@@ -50,19 +50,19 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
             <div className="grid grid-cols-1 gap-2 text-xs">
               <div className="rounded-lg bg-emerald-950/20 border border-emerald-500/20 p-2.5">
                 <span className="font-bold text-emerald-300 block mb-0.5">Citizens:</span>
-                All Citizens share the identical <strong>True Secret Word</strong> (e.g., "Espresso").
+                All Citizens share the identical <strong>True Secret Word</strong> (e.g., "Mango").
               </div>
               <div className="rounded-lg bg-rose-950/20 border border-rose-500/20 p-2.5">
                 <span className="font-bold text-rose-300 block mb-0.5">Imposters:</span>
-                In <strong>Decoy Mode</strong>, Imposters receive a subtly paired decoy word (e.g., "Latte"). In <strong>Blind Mode</strong>, they only know the category!
+                In <strong>Decoy Mode</strong>, Imposters receive a familiar paired word (e.g., "Banana"). In <strong>Blind Mode</strong>, they only know the category!
               </div>
               <div className="rounded-lg bg-amber-950/20 border border-amber-500/20 p-2.5">
-                <span className="font-bold text-amber-300 block mb-0.5">Double-Agent Decoy (Optional Twist):</span>
-                One innocent Citizen is secretly told their word <em>might</em> be a decoy. They hold the true word, but must deduce if they are innocent while playing with hyper-paranoia!
+                <span className="font-bold text-amber-300 block mb-0.5">Decoy Citizen (Optional Twist):</span>
+                A Decoy Citizen appears to be a normal Citizen and unknowingly receives the alternate word. They still win with Citizens, but their honest clues may distract the table. Choose up to two when the lobby allows it.
               </div>
               <div className="rounded-lg bg-sky-950/20 border border-sky-500/20 p-2.5">
                 <span className="font-bold text-sky-300 block mb-0.5">Large Lobby Roles (7+):</span>
-                The Inspector receives private radar intel. The Bodyguard has one public veto. The Sleeper Agent knows the Citizen word but wins with the Imposters. The neutral Anarchist wins alone by getting voted out.
+                The Inspector receives private radar intel. The Bodyguard can protect another player once. The Sleeper Agent knows the Citizen word but wins with the Imposters. The neutral Anarchist wins alone by ranking first in an elimination vote.
               </div>
             </div>
           </div>
@@ -85,7 +85,7 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
               <span>4. Open Accusation or Blind Ballot</span>
             </div>
             <p className="text-slate-300 text-xs leading-relaxed">
-              Use <strong>Open Accusation</strong> for live table debate with an audio 3-2-1 simultaneous finger point countdown, or <strong>Blind Ballot</strong> to pass the phone around for confidential voting. A Bodyguard may veto before the identity reveal. A caught Imposter hunts the Inspector when one is alive, otherwise they attempt the Last Stand word guess.
+              Use <strong>Open Accusation</strong> for live table debate with an audio 3-2-1 simultaneous finger point countdown, or <strong>Blind Ballot</strong> to pass the phone around for confidential voting. Large lobbies may queue two different suspects. Ties at the cutoff return to an open decision. The Bodyguard may protect another player before their reveal. After the final Imposter is caught, they must identify a living Inspector before unlocking the Last Stand word guess.
             </p>
           </div>
 

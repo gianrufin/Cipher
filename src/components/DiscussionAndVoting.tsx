@@ -1,58 +1,50 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Vote, Users, ShieldAlert, ArrowRight, EyeOff, 
-  Check, AlertTriangle, Flame, RotateCcw, Zap, Compass
-} from 'lucide-react';
-import { Player, VotingStyle } from '../types';
-import { playVote, triggerHaptic, playWhoosh, playCountdown } from '../utils/soundEffects';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Check, EyeOff, RotateCcw, Vote, Zap } from 'lucide-react';
+import { EliminationsPerVote, Player, VotingStyle } from '../types';
+import { playCountdown, playVote, playWhoosh, triggerHaptic } from '../utils/soundEffects';
 
 interface DiscussionAndVotingProps {
   players: Player[];
   initialVotingStyle?: VotingStyle;
-  onEliminatePlayer: (playerId: string) => void;
+  eliminationsPerVote: EliminationsPerVote;
+  onEliminatePlayers: (playerIds: string[]) => void;
   onReturnToClues: () => void;
 }
 
 export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
   players,
   initialVotingStyle = 'open',
-  onEliminatePlayer,
+  eliminationsPerVote,
+  onEliminatePlayers,
   onReturnToClues
 }) => {
-  const activePlayers = players.filter(p => !p.isEliminated);
-
-  // Voting mode: 'open' (group points finger & taps accused) or 'secret_ballot' (pass phone to vote secretly)
-  const [votingMethod, setVotingMethod] = useState<'open' | 'secret'>(
-    initialVotingStyle === 'blind' ? 'secret' : 'open'
-  );
-
-  // 3-2-1 Simultaneous Pointing Countdown State
+  const activePlayers = players.filter(player => !player.isEliminated);
+  const selectionCount = Math.min(eliminationsPerVote, Math.max(1, activePlayers.length - 1));
+  const [votingMethod, setVotingMethod] = useState<'open' | 'secret'>(initialVotingStyle === 'blind' ? 'secret' : 'open');
   const [countdownStep, setCountdownStep] = useState<number | null>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // For open vote: currently selected target for confirmation
-  const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
-
-  // For secret ballot:
+  const [selectedTargetIds, setSelectedTargetIds] = useState<string[]>([]);
   const [secretVoterIndex, setSecretVoterIndex] = useState(0);
   const [secretVotes, setSecretVotes] = useState<Record<string, number>>({});
   const [secretStep, setSecretStep] = useState<'pass' | 'vote' | 'results'>('pass');
-  const [currentSecretSelection, setCurrentSecretSelection] = useState<string | null>(null);
-
+  const [currentSecretSelection, setCurrentSecretSelection] = useState<string[]>([]);
   const currentVoter = activePlayers[secretVoterIndex];
 
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-    };
+  useEffect(() => () => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
   }, []);
+
+  const resetSecretBallot = () => {
+    setSecretStep('pass');
+    setSecretVoterIndex(0);
+    setSecretVotes({});
+    setCurrentSecretSelection([]);
+  };
 
   const handleStartCountdown = () => {
     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     setCountdownStep(3);
     playCountdown(3);
-
     let current = 3;
     countdownTimerRef.current = setInterval(() => {
       current -= 1;
@@ -61,39 +53,30 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
         playCountdown(current);
       } else {
         if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
-        setTimeout(() => {
-          setCountdownStep(null);
-        }, 2200);
+        setTimeout(() => setCountdownStep(null), 1600);
       }
     }, 950);
   };
 
-  // Open voting selection
-  const handleSelectOpenTarget = (id: string) => {
-    setSelectedTargetId(id);
-    playVote();
+  const toggleSelection = (playerId: string, current: string[], update: (ids: string[]) => void) => {
+    if (current.includes(playerId)) {
+      update(current.filter(id => id !== playerId));
+    } else if (current.length < selectionCount) {
+      update([...current, playerId]);
+      playVote();
+    }
   };
 
-  const handleConfirmOpenElimination = () => {
-    if (!selectedTargetId) return;
-    triggerHaptic([60, 40, 100]);
-    onEliminatePlayer(selectedTargetId);
-  };
-
-  // Secret ballot handlers
   const handleSecretVoteSubmit = () => {
-    if (!currentSecretSelection) return;
-    playVote();
-
-    const updated = {
-      ...secretVotes,
-      [currentSecretSelection]: (secretVotes[currentSecretSelection] || 0) + 1
-    };
+    if (currentSecretSelection.length !== selectionCount) return;
+    const updated = { ...secretVotes };
+    currentSecretSelection.forEach(playerId => {
+      updated[playerId] = (updated[playerId] || 0) + 1;
+    });
     setSecretVotes(updated);
-    setCurrentSecretSelection(null);
-
+    setCurrentSecretSelection([]);
     if (secretVoterIndex < activePlayers.length - 1) {
-      setSecretVoterIndex(prev => prev + 1);
+      setSecretVoterIndex(index => index + 1);
       setSecretStep('pass');
       playWhoosh();
     } else {
@@ -102,317 +85,126 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
     }
   };
 
-  // Find most voted in secret ballot
-  const getMostVotedPlayer = () => {
-    let maxVotes = -1;
-    let topPlayerId = activePlayers[0]?.id;
-    let isTie = false;
+  const rankedPlayers = [...activePlayers].sort((a, b) =>
+    (secretVotes[b.id] || 0) - (secretVotes[a.id] || 0) || a.avatarSeed - b.avatarSeed
+  );
+  const rankedTargets = rankedPlayers.slice(0, selectionCount);
+  const hasCutoffTie = rankedPlayers.length > selectionCount
+    && (secretVotes[rankedPlayers[selectionCount - 1]?.id] || 0) === (secretVotes[rankedPlayers[selectionCount]?.id] || 0);
 
-    activePlayers.forEach(p => {
-      const count = secretVotes[p.id] || 0;
-      if (count > maxVotes) {
-        maxVotes = count;
-        topPlayerId = p.id;
-        isTie = false;
-      } else if (count === maxVotes && count > 0) {
-        isTie = true;
-      }
-    });
-
-    return { topPlayerId, maxVotes, isTie };
+  const confirmOpenVote = () => {
+    if (selectedTargetIds.length !== selectionCount) return;
+    triggerHaptic([60, 40, 100]);
+    onEliminatePlayers(selectedTargetIds);
   };
 
-  const { topPlayerId, maxVotes, isTie } = getMostVotedPlayer();
-
   return (
-    <div className="w-full max-w-lg mx-auto pb-24 pt-2 px-4 space-y-5">
-      {/* Top Banner */}
-      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+    <div className="mx-auto w-full max-w-lg space-y-5 px-4 pb-24 pt-2">
+      <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-rose-500/20 text-rose-400">
-            <Vote className="h-4 w-4" />
-          </div>
+          <span className="rounded-lg bg-rose-500/20 p-1.5 text-rose-400"><Vote className="h-4 w-4" /></span>
           <div>
-            <h2 className="font-display font-black text-lg text-white">Accusation Phase</h2>
-            <p className="text-[11px] text-slate-400">Debate face-to-face and eliminate an imposter</p>
+            <h2 className="font-display text-lg font-black text-white">Accusation Phase</h2>
+            <p className="text-[11px] text-slate-400">Choose {selectionCount === 2 ? 'two suspects' : 'one suspect'} for elimination</p>
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={onReturnToClues}
-          className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors"
-        >
-          <RotateCcw className="h-3 w-3" />
-          <span>Review Clues</span>
+        <button type="button" onClick={onReturnToClues} className="flex items-center gap-1 text-xs text-slate-400 hover:text-white">
+          <RotateCcw className="h-3 w-3" /> Review clues
         </button>
       </div>
 
-      {/* Mode Selector Tabs */}
-      <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.08]">
-        <button
-          type="button"
-          onClick={() => setVotingMethod('open')}
-          className={`py-2 text-xs font-semibold rounded-lg transition-all ${
-            votingMethod === 'open'
-              ? 'bg-rose-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Open Accusation
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setVotingMethod('secret');
-            setSecretStep('pass');
-            setSecretVoterIndex(0);
-            setSecretVotes({});
-          }}
-          className={`py-2 text-xs font-semibold rounded-lg transition-all ${
-            votingMethod === 'secret'
-              ? 'bg-rose-600 text-white shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Secret Ballot
-        </button>
+      {selectionCount === 2 && (
+        <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-[11px] text-amber-200">
+          Double Elimination is active. Candidates resolve in ranked order, and the match may end before the second reveal.
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+        <button type="button" onClick={() => setVotingMethod('open')} className={`rounded-lg py-2 text-xs font-semibold ${votingMethod === 'open' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>Open Accusation</button>
+        <button type="button" onClick={() => { setVotingMethod('secret'); resetSecretBallot(); }} className={`rounded-lg py-2 text-xs font-semibold ${votingMethod === 'secret' ? 'bg-rose-600 text-white' : 'text-slate-400'}`}>Secret Ballot</button>
       </div>
 
-      {/* METHOD 1: OPEN ACCUSATION */}
       {votingMethod === 'open' && (
         <div className="space-y-4">
-          {/* Simultaneous Pointing Widget */}
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-4 text-center space-y-3 shadow-lg">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-4 text-center shadow-lg">
             {countdownStep !== null ? (
-              <div className="py-6 space-y-2 animate-pulse">
-                {countdownStep > 0 ? (
-                  <>
-                    <div className="font-display font-black text-6xl text-rose-400 tracking-tight">
-                      {countdownStep}
-                    </div>
-                    <p className="text-xs font-mono uppercase tracking-widest text-slate-300">
-                      Lock in your suspect... get ready!
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="font-display font-black text-4xl sm:text-5xl text-rose-300 tracking-wider">
-                      👉 POINT NOW! 👈
-                    </div>
-                    <p className="text-xs text-rose-200/90 font-medium">
-                      Everyone points at their prime suspect!
-                    </p>
-                  </>
-                )}
+              <div className="space-y-2 py-6">
+                <div className="font-display text-6xl font-black text-rose-400">{countdownStep > 0 ? countdownStep : 'POINT!'}</div>
+                <p className="text-xs text-slate-400">Point at your strongest suspect, then discuss the final ranking.</p>
               </div>
             ) : (
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100">
-                    <Zap className="h-3.5 w-3.5 text-rose-400" />
-                    <span>Simultaneous Finger-Point</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-relaxed max-w-xs">
-                    Trigger a 3-second audio countdown so everyone points at once—zero copycat voting!
-                  </p>
+              <div className="flex flex-col items-center justify-between gap-3 text-left sm:flex-row">
+                <div>
+                  <p className="flex items-center gap-1.5 text-xs font-bold text-slate-100"><Zap className="h-3.5 w-3.5 text-rose-400" /> Simultaneous Finger-Point</p>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-400">Point together, discuss the result, then select the elimination order below.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleStartCountdown}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-500 text-white font-semibold text-xs whitespace-nowrap shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  <span>3-2-1 Point!</span>
-                </button>
+                <button type="button" onClick={handleStartCountdown} className="cipher-button-primary w-full sm:w-auto"><Zap className="h-4 w-4" /> 3-2-1 Point</button>
               </div>
             )}
           </div>
 
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-300 leading-relaxed">
-            Deliberate with the table or use the 3-2-1 point. Select the player who received the most accusations below:
-          </div>
+          <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-300">
+            Select {selectionCount}. Selection order determines who is revealed first.
+          </p>
+          <PlayerChoices
+            players={activePlayers}
+            selectedIds={selectedTargetIds}
+            onSelect={id => toggleSelection(id, selectedTargetIds, setSelectedTargetIds)}
+          />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {activePlayers.map((player) => {
-              const isSelected = selectedTargetId === player.id;
-              return (
-                <button
-                  key={player.id}
-                  type="button"
-                  onClick={() => handleSelectOpenTarget(player.id)}
-                  className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'border-rose-500 bg-[#160c10] text-white shadow-md'
-                      : 'border-white/[0.08] bg-[#0c101a] text-slate-200 hover:border-white/[0.15]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg font-mono text-xs font-bold ${
-                      isSelected ? 'bg-rose-500 text-white' : 'bg-white/[0.06] text-slate-300'
-                    }`}>
-                      {player.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <span className="font-display font-semibold text-sm block text-slate-100">
-                        {player.name}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">SUSPECT</span>
-                    </div>
-                  </div>
-
-                  {isSelected && (
-                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white">
-                      <Check className="h-3.5 w-3.5" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Confirm Elimination Card */}
-          {selectedTargetId && (
-            <div className="rounded-2xl border border-rose-500/40 bg-[#160c10] p-5 text-center space-y-3 shadow-xl animate-fadeIn">
-              <div className="flex items-center justify-center gap-1.5 text-[10px] text-rose-300 uppercase tracking-widest font-mono font-bold">
-                <AlertTriangle className="h-3.5 w-3.5 text-rose-400" />
-                <span>Accusation Locked</span>
-              </div>
-              <h3 className="font-display text-2xl font-bold text-slate-100">
-                Eliminate {activePlayers.find(p => p.id === selectedTargetId)?.name}?
+          {selectedTargetIds.length > 0 && (
+            <div className="rounded-2xl border border-rose-500/40 bg-[#160c10] p-5 text-center">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-rose-300">Elimination queue</p>
+              <h3 className="mt-2 font-display text-xl font-bold text-slate-100">
+                {selectedTargetIds.map((id, index) => `${index + 1}. ${activePlayers.find(player => player.id === id)?.name}`).join('  ·  ')}
               </h3>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Their true identity will be revealed. If an Imposter is caught, they get one chance at the Last Stand redemption!
-              </p>
-              <button
-                id="confirm-open-eliminate-btn"
-                type="button"
-                onClick={handleConfirmOpenElimination}
-                className="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-display font-bold text-xs uppercase tracking-wider shadow-md active:scale-[0.98] transition-all"
-              >
-                Confirm & Reveal Identity
-              </button>
+              <button type="button" disabled={selectedTargetIds.length !== selectionCount} onClick={confirmOpenVote} className="cipher-button-primary mt-4 w-full disabled:opacity-30">Confirm {selectionCount === 2 ? 'both eliminations' : 'elimination'}</button>
             </div>
           )}
         </div>
       )}
 
-      {/* METHOD 2: SECRET BALLOT */}
       {votingMethod === 'secret' && (
         <div className="space-y-4">
-          {secretStep === 'pass' && (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-6 text-center space-y-4 shadow-xl">
-              <span className="text-[10px] uppercase font-mono text-slate-400 tracking-wider">
-                VOTER {secretVoterIndex + 1} OF {activePlayers.length}
-              </span>
-              <h3 className="font-display text-2xl font-bold text-slate-100">
-                Pass device to {currentVoter.name}
-              </h3>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                Cast your secret ballot in private. Votes are tallied anonymously.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSecretStep('vote');
-                  triggerHaptic(20);
-                }}
-                className="w-full py-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-slate-100 font-semibold text-xs border border-white/[0.08] transition-all flex items-center justify-center gap-2"
-              >
-                <EyeOff className="h-3.5 w-3.5 text-rose-400" />
-                <span>I am {currentVoter.name} — Open Ballot</span>
-              </button>
+          {secretStep === 'pass' && currentVoter && (
+            <div className="cipher-panel space-y-4 p-6 text-center">
+              <p className="cipher-kicker">Voter {secretVoterIndex + 1} of {activePlayers.length}</p>
+              <h3 className="font-display text-2xl font-bold text-slate-100">Pass to {currentVoter.name}</h3>
+              <p className="text-xs text-slate-400">Choose {selectionCount} different suspect{selectionCount === 2 ? 's' : ''} in private.</p>
+              <button type="button" onClick={() => setSecretStep('vote')} className="cipher-button-secondary w-full"><EyeOff className="h-4 w-4" /> Open private ballot</button>
             </div>
           )}
 
-          {secretStep === 'vote' && (
-            <div className="space-y-3 animate-fadeIn">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span>{currentVoter.name}'s Confidential Ballot</span>
-                <span className="text-rose-400 text-[11px] font-mono">SELECT 1</span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {activePlayers.map((player) => {
-                  const isSelf = player.id === currentVoter.id;
-                  const isSelected = currentSecretSelection === player.id;
-                  return (
-                    <button
-                      key={player.id}
-                      type="button"
-                      disabled={isSelf}
-                      onClick={() => {
-                        setCurrentSecretSelection(player.id);
-                        triggerHaptic(20);
-                      }}
-                      className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
-                        isSelf
-                          ? 'border-white/[0.04] bg-white/[0.01] text-slate-600 cursor-not-allowed'
-                          : isSelected
-                          ? 'border-rose-500 bg-[#160c10] text-white font-semibold'
-                          : 'border-white/[0.08] bg-[#0c101a] text-slate-300 hover:border-white/[0.15]'
-                      }`}
-                    >
-                      <span className="text-xs">{player.name} {isSelf && '(You)'}</span>
-                      {isSelected && <Check className="h-3.5 w-3.5 text-rose-400" />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                type="button"
-                disabled={!currentSecretSelection}
-                onClick={handleSecretVoteSubmit}
-                className={`w-full py-3.5 rounded-xl font-semibold text-xs uppercase tracking-wider transition-all shadow-md ${
-                  currentSecretSelection
-                    ? 'bg-rose-600 text-white hover:bg-rose-500'
-                    : 'bg-white/[0.04] text-slate-600 border border-white/[0.06] cursor-not-allowed'
-                }`}
-              >
-                Submit Secret Vote
-              </button>
+          {secretStep === 'vote' && currentVoter && (
+            <div className="space-y-3">
+              <div className="flex justify-between text-xs text-slate-400"><span>{currentVoter.name}'s ballot</span><span className="font-mono text-rose-400">SELECT {selectionCount}</span></div>
+              <PlayerChoices
+                players={activePlayers}
+                selectedIds={currentSecretSelection}
+                disabledId={currentVoter.id}
+                onSelect={id => toggleSelection(id, currentSecretSelection, setCurrentSecretSelection)}
+              />
+              <button type="button" disabled={currentSecretSelection.length !== selectionCount} onClick={handleSecretVoteSubmit} className="cipher-button-primary w-full disabled:opacity-30">Submit private vote</button>
             </div>
           )}
 
           {secretStep === 'results' && (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-5 space-y-4 shadow-xl text-center animate-fadeIn">
-              <span className="text-[10px] uppercase font-mono text-slate-400 tracking-wider">
-                Ballot Tally Results
-              </span>
-
+            <div className="cipher-panel space-y-4 p-5 text-center">
+              <p className="cipher-kicker">Ballot results</p>
               <div className="space-y-1.5">
-                {activePlayers.map((p) => {
-                  const count = secretVotes[p.id] || 0;
-                  const isTop = p.id === topPlayerId && !isTie && count > 0;
-                  return (
-                    <div
-                      key={p.id}
-                      className={`flex items-center justify-between px-3 py-2 rounded-lg border text-xs ${
-                        isTop
-                          ? 'border-rose-500 bg-rose-500/10 text-white font-semibold'
-                          : 'border-white/[0.06] bg-white/[0.02] text-slate-300'
-                      }`}
-                    >
-                      <span>{p.name}</span>
-                      <span className="font-mono text-slate-400">{count} vote{count !== 1 ? 's' : ''}</span>
-                    </div>
-                  );
+                {rankedPlayers.map(player => {
+                  const selected = !hasCutoffTie && rankedTargets.some(target => target.id === player.id);
+                  const votes = secretVotes[player.id] || 0;
+                  return <div key={player.id} className={`flex justify-between rounded-lg border px-3 py-2 text-xs ${selected ? 'border-rose-500 bg-rose-500/10 text-white' : 'border-white/[0.06] text-slate-300'}`}><span>{player.name}</span><span className="font-mono text-slate-400">{votes} vote{votes === 1 ? '' : 's'}</span></div>;
                 })}
               </div>
-
-              {isTie ? (
-                <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-200 text-xs">
-                  Tie vote! Discuss and cast an open accusation to break the tie.
+              {hasCutoffTie ? (
+                <div className="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
+                  <p><AlertTriangle className="mr-1 inline h-4 w-4" /> Tie at the elimination line. Resolve it openly.</p>
+                  <button type="button" onClick={() => { setVotingMethod('open'); setSelectedTargetIds([]); }} className="cipher-button-secondary w-full">Open tie-break</button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => onEliminatePlayer(topPlayerId)}
-                  className="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs uppercase tracking-wider shadow-md"
-                >
-                  Eliminate {activePlayers.find(p => p.id === topPlayerId)?.name}
-                </button>
+                <button type="button" onClick={() => onEliminatePlayers(rankedTargets.map(player => player.id))} className="cipher-button-primary w-full">Reveal elimination queue</button>
               )}
             </div>
           )}
@@ -421,3 +213,23 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({
     </div>
   );
 };
+
+const PlayerChoices = ({ players, selectedIds, disabledId, onSelect }: {
+  players: Player[];
+  selectedIds: string[];
+  disabledId?: string;
+  onSelect: (id: string) => void;
+}) => (
+  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    {players.map(player => {
+      const selectedIndex = selectedIds.indexOf(player.id);
+      const disabled = player.id === disabledId;
+      return (
+        <button key={player.id} type="button" disabled={disabled} onClick={() => onSelect(player.id)} className={`flex items-center justify-between rounded-xl border p-3.5 text-left disabled:cursor-not-allowed disabled:opacity-25 ${selectedIndex >= 0 ? 'border-rose-500 bg-[#160c10]' : 'border-white/[0.08] bg-[#0c101a]'}`}>
+          <span className="text-sm font-bold text-slate-100">{player.name}{disabled ? ' (You)' : ''}</span>
+          {selectedIndex >= 0 && <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white">{selectedIds.length > 1 ? selectedIndex + 1 : <Check className="h-3.5 w-3.5" />}</span>}
+        </button>
+      );
+    })}
+  </div>
+);

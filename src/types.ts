@@ -1,5 +1,6 @@
 export type RoleType =
   | 'citizen'
+  | 'decoy'
   | 'imposter'
   | 'anarchist'
   | 'inspector'
@@ -18,6 +19,7 @@ export interface SpecialRoleConfig {
 export type GameMode = 'decoy' | 'blind';
 
 export type VotingStyle = 'open' | 'blind';
+export type EliminationsPerVote = 1 | 2;
 export type WordDifficulty = 'easy' | 'standard' | 'tricky';
 export type WordAudience = 'family' | 'barkada' | 'mixed';
 
@@ -27,7 +29,6 @@ export interface Player {
   role: RoleType;
   secretWord: string;
   isDecoyWord: boolean;
-  isDoubleAgentDecoy?: boolean;
   isEliminated: boolean;
   avatarSeed: number;
   votesAgainst: number;
