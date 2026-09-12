@@ -30,13 +30,13 @@
 
   :root[data-theme='dark'] {
     color-scheme: dark;
-    --canvas: #030407;
-    --surface: #0a0c11;
-    --surface-elevated: #10131a;
-    --surface-inset: #050609;
+    --canvas: #000000;
+    --surface: #050505;
+    --surface-elevated: #090909;
+    --surface-inset: #020202;
     --text: #f4f7fb;
     --text-muted: #a7b0be;
-    --border: #242a36;
+    --border: #1c1c1c;
     --border-soft: rgba(255, 255, 255, 0.09);
     --coral: #ff7457;
     --coral-hover: #ff886f;
@@ -46,12 +46,12 @@
     --green: #45e6a1;
     --yellow: #ffd166;
     --danger: #ff6476;
-    --grid-line: rgba(255, 255, 255, 0.018);
+    --grid-line: transparent;
     --shadow-card: 0 20px 50px rgba(0, 0, 0, 0.34);
     --shadow-raised: 0 28px 90px rgba(0, 0, 0, 0.42);
     --illustration: #5ca8ff;
     --illustration-accent: #ff7457;
-    --illustration-opacity: 0.075;
+    --illustration-opacity: 0;
   }
 
   * {
@@ -96,6 +96,18 @@
   background-size: 32px 32px;
   background-color: var(--canvas);
   overflow: hidden;
+}
+
+:root[data-theme='dark'] .cipher-shell {
+  background: #000000;
+}
+
+:root[data-theme='dark'] .cipher-atmosphere {
+  display: none;
+}
+
+:root[data-theme='dark'] .cipher-shell::before {
+  display: none;
 }
 
 .cipher-shell::before {
