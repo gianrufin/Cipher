@@ -30,6 +30,7 @@ interface SetupScreenProps {
   customPairs: WordPair[];
   onOpenCustomModal: () => void;
   savedPlayers: string[];
+  initialPlayers?: string[];
   onOpenOnboarding: () => void;
 }
 
@@ -44,10 +45,10 @@ const difficultyCopy: Record<WordDifficulty, string> = {
 };
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
-  onStartGame, customPairs, onOpenCustomModal, onOpenOnboarding
+  onStartGame, customPairs, onOpenCustomModal, onOpenOnboarding, savedPlayers, initialPlayers = []
 }) => {
   const [step, setStep] = useState(0);
-  const [playerNames, setPlayerNames] = useState<string[]>([]);
+  const [playerNames, setPlayerNames] = useState<string[]>(initialPlayers);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [impostersCount, setImpostersCount] = useState<1 | 2 | 3>(1);
@@ -246,9 +247,18 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
             <div className="mt-6 space-y-2">
               {playerNames.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/10 py-12 text-center">
+                <div className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center">
                   <Users className="mx-auto h-6 w-6 text-stone-700" />
                   <p className="mt-3 text-xs text-stone-600">Your roster will appear here</p>
+                  {savedPlayers.length >= 4 && (
+                    <button
+                      type="button"
+                      onClick={() => setPlayerNames(savedPlayers)}
+                      className="cipher-button-secondary mt-5"
+                    >
+                      <Users className="h-4 w-4" /> Load last group
+                    </button>
+                  )}
                 </div>
               ) : playerNames.map((name, index) => (
                 <div key={name} className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3">

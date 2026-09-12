@@ -53,11 +53,12 @@ export default function App() {
   const [savedPlayers, setSavedPlayers] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('cipher_saved_players');
-      return saved ? JSON.parse(saved) : ['Alex', 'Sam', 'Jordan', 'Taylor', 'Casey'];
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return ['Alex', 'Sam', 'Jordan', 'Taylor', 'Casey'];
+      return [];
     }
   });
+  const [setupPlayers, setSetupPlayers] = useState<string[]>([]);
 
   // Session Statistics Persistence
   const [sessionStats, setSessionStats] = useState<SessionStats>(() => {
@@ -156,6 +157,7 @@ export default function App() {
     } catch {
       // ignore
     }
+    setSetupPlayers(playerNames);
 
     // Randomize whether wordA or wordB is the Citizen word
     const flip = Math.random() > 0.5;
@@ -389,6 +391,7 @@ export default function App() {
   };
 
   const handleResetToSetup = () => {
+    if (players.length > 0) setSetupPlayers(players.map(player => player.name));
     setPhase('setup');
     setPlayers([]);
     setPassIndex(0);
@@ -426,6 +429,7 @@ export default function App() {
             customPairs={customPairs}
             onOpenCustomModal={() => setIsCustomModalOpen(true)}
             savedPlayers={savedPlayers}
+            initialPlayers={setupPlayers}
             onOpenOnboarding={() => setPhase('onboarding')}
           />
         )}
