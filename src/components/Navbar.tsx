@@ -31,24 +31,24 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.07] bg-[#090d16]/90 backdrop-blur-md px-4 py-2.5">
+    <header className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#0b0b09]/88 backdrop-blur-xl px-4 py-3">
       <div className="mx-auto flex max-w-lg items-center justify-between">
         {/* Brand Mark */}
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 border border-white/[0.1] shadow-inner shadow-black/40">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#ff6846] border border-[#ff896f] shadow-lg shadow-black/30">
             <div className="relative flex items-center justify-center">
-              <div className="h-4 w-4 rounded-full border border-rose-500/80 flex items-center justify-center">
-                <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+              <div className="h-4 w-4 rounded-full border border-stone-950/70 flex items-center justify-center">
+                <div className="h-1.5 w-1.5 rounded-full bg-stone-950" />
               </div>
             </div>
           </div>
           <div>
             <div className="flex items-center gap-1.5 leading-none">
               <span className="font-display font-black text-base tracking-wider text-slate-100 uppercase">
-                CIPHER
+                CIPHER<span className="text-[#ff6846]">.</span>
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded border border-white/[0.08] bg-white/[0.04] text-[9px] font-mono font-semibold tracking-widest text-slate-400 uppercase">
-                Offline 1P
+                Field game
               </span>
             </div>
           </div>

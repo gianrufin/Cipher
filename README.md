@@ -43,6 +43,8 @@ This project is pre-configured with **relative asset paths** (`base: './'`) and 
 - **Game Stats & Analytics**: Tracks rounds played, imposters caught, win percentages, and match histories.
 - **Progressive Web App (PWA) & Offline First**: Fully installable to iPhone and Android home screens with fullscreen display and zero internet dependency after initial load.
 - **Custom Word Packs**: Add custom inside jokes, word pairs, and local themes saved directly in browser storage.
+- **Large Lobby Roles**: At 7+ players, unlock the Inspector, Bodyguard, Sleeper Agent, and Anarchist with real counter-phases, veto logic, and independent win conditions.
+- **Recommended Casts**: Apply balanced 7–8 and 9–12 player configurations from the setup screen in one tap.
 
 ---
 

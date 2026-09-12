@@ -86,11 +86,11 @@ export const ClueRoundView: React.FC<ClueRoundViewProps> = ({
   const defaultSeconds = activeModifier?.id === 'mod_rapid' ? 5 : 20;
   const [timeLeft, setTimeLeft] = useState(defaultSeconds);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 3-second Pre-Countdown State for current speaker
   const [preCountdown, setPreCountdown] = useState<number | null>(3);
-  const preCountdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const preCountdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Interrogation prompt modal / card
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);

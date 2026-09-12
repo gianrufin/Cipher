@@ -1,11 +1,7 @@
-import React, { useState } from 'react';
-import confetti from 'canvas-confetti';
-import { 
-  ShieldCheck, Flame, Trophy, RotateCcw, ArrowRight, 
-  HelpCircle, AlertTriangle, Sparkles, Check, X, Users, ShieldAlert
-} from 'lucide-react';
-import { Player, MatchSummary } from '../types';
-import { playElimination, playVictory, playImposterWin, triggerHaptic } from '../utils/soundEffects';
+import React, { useEffect, useState } from 'react';
+import { ArrowRight, Bomb, Flame, ScanSearch, Shield, Sparkles } from 'lucide-react';
+import { MatchSummary, Player, RoleType } from '../types';
+import { playElimination, playImposterWin, playVictory, triggerHaptic } from '../utils/soundEffects';
 
 interface EliminationAndOutcomeProps {
   eliminatedPlayer: Player;
@@ -18,199 +14,158 @@ interface EliminationAndOutcomeProps {
   onGameOver: (summary: MatchSummary) => void;
 }
 
+const ROLE_LABELS: Record<RoleType, string> = {
+  citizen: 'Citizen',
+  imposter: 'Imposter',
+  anarchist: 'Anarchist',
+  inspector: 'Inspector',
+  sleeper: 'Sleeper Agent',
+  bodyguard: 'Bodyguard'
+};
+
 export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
-  eliminatedPlayer,
-  players,
-  trueCitizenWord,
-  decoyWord,
-  categoryName,
-  roundsPlayed,
-  onNextRound,
-  onGameOver
+  eliminatedPlayer, players, trueCitizenWord, categoryName, roundsPlayed, onNextRound, onGameOver
 }) => {
-  // Sub-phases: 'reveal' | 'last_stand'
-  const [subPhase, setSubPhase] = useState<'reveal' | 'last_stand'>('reveal');
-  const [imposterGuess, setImposterGuess] = useState('');
+  const [subPhase, setSubPhase] = useState<'reveal' | 'last_stand' | 'inspector_guess'>('reveal');
+  const [wordGuess, setWordGuess] = useState('');
+  const [inspectorGuessId, setInspectorGuessId] = useState<string | null>(null);
+  const remaining = players.filter(player => !player.isEliminated);
+  const remainingImposters = remaining.filter(player => player.role === 'imposter');
+  const remainingBadTeam = remaining.filter(player => player.role === 'imposter' || player.role === 'sleeper');
+  const remainingCitizenTeam = remaining.filter(player => ['citizen', 'inspector', 'bodyguard'].includes(player.role));
+  const livingInspector = remaining.find(player => player.role === 'inspector');
+  const totalImposters = players.filter(player => player.role === 'imposter').length;
+  const impostersCaught = players.filter(player => player.role === 'imposter' && player.isEliminated).length;
 
-  const isImposter = eliminatedPlayer.role === 'imposter';
-
-  // Compute remaining alive players
-  const remainingPlayers = players.filter(p => !p.isEliminated && p.id !== eliminatedPlayer.id);
-  const remainingImposters = remainingPlayers.filter(p => p.role === 'imposter');
-  const remainingCitizens = remainingPlayers.filter(p => p.role === 'citizen');
-  const totalImposters = players.filter(p => p.role === 'imposter').length;
-
-  // Trigger elimination sound on mount
-  React.useEffect(() => {
+  useEffect(() => {
     playElimination();
-    triggerHaptic([100, 50, 150]);
+    triggerHaptic([90, 45, 130]);
   }, []);
 
-  const handleProceedFromReveal = () => {
-    if (isImposter) {
-      // Imposter gets the Last Stand guess opportunity!
-      setSubPhase('last_stand');
-      triggerHaptic(30);
+  const finish = (winner: MatchSummary['winner'], winReason: string, specialWinnerName?: string) => {
+    if (winner === 'citizens') {
+      playVictory();
     } else {
-      // An innocent citizen was eliminated! Check win conditions:
-      if (remainingImposters.length >= remainingCitizens.length) {
-        // Imposters outnumber or equal citizens -> Imposter Win!
-        playImposterWin();
-        const impostersCaught = players.filter(p => p.role === 'imposter' && p.isEliminated).length;
-        onGameOver({
-          roundsPlayed,
-          impostersCaughtThisMatch: impostersCaught,
-          totalImposters,
-          winner: 'imposters',
-          winReason: 'The Imposters have seized control! Innocent citizens were eliminated.'
-        });
-      } else {
-        // Game continues with next round
-        onNextRound();
-      }
-    }
-  };
-
-  const handleLastStandGuess = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanGuess = imposterGuess.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    const cleanTarget = trueCitizenWord.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-
-    // Imposter caught count including this one
-    const impostersCaughtSoFar = players.filter(p => p.role === 'imposter' && (p.isEliminated || p.id === eliminatedPlayer.id)).length;
-
-    if (cleanGuess === cleanTarget) {
-      // Imposter guessed correctly! Imposter victory!
       playImposterWin();
-      triggerHaptic([60, 40, 100]);
-      onGameOver({
-        roundsPlayed,
-        impostersCaughtThisMatch: impostersCaughtSoFar,
-        totalImposters,
-        winner: 'imposters',
-        winReason: `The Imposter correctly deduced the Citizen word ("${trueCitizenWord}") in their Last Stand!`
-      });
+    }
+    onGameOver({ roundsPlayed, impostersCaughtThisMatch: impostersCaught, totalImposters, winner, winReason, specialWinnerName });
+  };
+
+  const evaluateBoard = () => {
+    if (remainingImposters.length === 0) {
+      finish('citizens', 'Every Imposter was identified and the final counter-play failed.');
+    } else if (remainingBadTeam.length >= remainingCitizenTeam.length) {
+      finish('imposters', 'The Imposter bloc now equals or outnumbers the remaining Citizen team.');
     } else {
-      // Imposter guessed wrong!
-      if (remainingImposters.length === 0) {
-        // All imposters eliminated! Citizens win!
-        playVictory();
-        confetti({ particleCount: 110, spread: 80, origin: { y: 0.6 } });
-        onGameOver({
-          roundsPlayed,
-          impostersCaughtThisMatch: totalImposters,
-          totalImposters,
-          winner: 'citizens',
-          winReason: 'All Imposters have been unmasked and eliminated without guessing the secret word!'
-        });
-      } else if (remainingImposters.length >= remainingCitizens.length) {
-        playImposterWin();
-        onGameOver({
-          roundsPlayed,
-          impostersCaughtThisMatch: impostersCaughtSoFar,
-          totalImposters,
-          winner: 'imposters',
-          winReason: 'Imposters equal or outnumber remaining citizens.'
-        });
-      } else {
-        // More rounds needed!
-        onNextRound();
-      }
+      onNextRound();
     }
   };
+
+  const proceedFromReveal = () => {
+    if (eliminatedPlayer.role === 'anarchist') {
+      finish('anarchist', `${eliminatedPlayer.name} baited the table into an elimination and wins alone.`, eliminatedPlayer.name);
+      return;
+    }
+    if (eliminatedPlayer.role === 'imposter') {
+      setSubPhase(livingInspector ? 'inspector_guess' : 'last_stand');
+      triggerHaptic(30);
+      return;
+    }
+    evaluateBoard();
+  };
+
+  const submitWordGuess = (event: React.FormEvent) => {
+    event.preventDefault();
+    const clean = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (clean(wordGuess) === clean(trueCitizenWord)) {
+      finish('imposters', `${eliminatedPlayer.name} decoded the Citizen word in the Last Stand.`);
+    } else {
+      evaluateBoard();
+    }
+  };
+
+  const submitInspectorGuess = () => {
+    if (!inspectorGuessId) return;
+    if (inspectorGuessId === livingInspector?.id) {
+      finish('imposters', `${eliminatedPlayer.name} correctly identified the Inspector and stole the victory.`);
+    } else {
+      evaluateBoard();
+    }
+  };
+
+  const tone = eliminatedPlayer.role === 'imposter'
+    ? 'text-rose-300 border-rose-400/30 bg-rose-400/10'
+    : eliminatedPlayer.role === 'anarchist'
+    ? 'text-amber-300 border-amber-400/30 bg-amber-400/10'
+    : eliminatedPlayer.role === 'sleeper'
+    ? 'text-violet-300 border-violet-400/30 bg-violet-400/10'
+    : 'text-emerald-300 border-emerald-400/30 bg-emerald-400/10';
 
   return (
-    <div className="w-full max-w-lg mx-auto pb-24 pt-2 px-4 space-y-6 animate-fadeIn">
-      {/* 1. IDENTITY REVEAL PHASE */}
+    <div className="w-full max-w-lg mx-auto px-4 py-7 sm:py-12 animate-fadeIn">
       {subPhase === 'reveal' && (
-        <div className="space-y-6 text-center">
-          <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-6 shadow-xl space-y-4">
-            <span className="text-[10px] uppercase font-mono text-slate-400 tracking-wider">
-              Accusation Outcome
-            </span>
-
-            <h2 className="font-display text-3xl font-bold text-slate-100">
-              {eliminatedPlayer.name}
-            </h2>
-
-            <div className="py-3">
-              {isImposter ? (
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/30 font-display font-bold text-sm tracking-wider uppercase">
-                  <Flame className="h-4 w-4 text-rose-400" />
-                  <span>Confirmed Imposter</span>
-                </div>
-              ) : eliminatedPlayer.isDoubleAgentDecoy ? (
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 font-display font-bold text-sm tracking-wider uppercase">
-                  <ShieldAlert className="h-4 w-4 text-amber-400" />
-                  <span>Citizen (Double-Agent Decoy)</span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-display font-bold text-sm tracking-wider uppercase">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  <span>Innocent Citizen</span>
-                </div>
-              )}
-            </div>
-
-            <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-              {isImposter
-                ? `Accusation was correct! However, ${eliminatedPlayer.name} is granted one final guess at the Citizen secret word to steal victory.`
-                : eliminatedPlayer.isDoubleAgentDecoy
-                ? `${eliminatedPlayer.name} was an innocent Citizen! However, they were playing under Double-Agent Decoy paranoia, doubting their own clues and appearing suspicious to the group.`
-                : `An innocent citizen was eliminated. The remaining players must quickly evaluate if the imposters now hold majority.`}
-            </p>
-
-            <button
-              id="proceed-reveal-btn"
-              type="button"
-              onClick={handleProceedFromReveal}
-              className="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs uppercase tracking-wider shadow-md active:scale-[0.98] transition-all"
-            >
-              {isImposter ? "Proceed to Last Stand Guess" : "Evaluate Round Condition"}
-            </button>
+        <section className="cipher-panel p-6 sm:p-8 text-center">
+          <p className="cipher-kicker">Vote locked / Identity exposed</p>
+          <div className="mx-auto mt-6 flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-stone-300">
+            {eliminatedPlayer.role === 'anarchist' ? <Bomb className="h-6 w-6" /> : eliminatedPlayer.role === 'imposter' ? <Flame className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
           </div>
-        </div>
+          <h1 className="font-display text-4xl font-black tracking-tight text-stone-50 mt-5">{eliminatedPlayer.name}</h1>
+          <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${tone}`}>
+            {ROLE_LABELS[eliminatedPlayer.role]}
+          </div>
+          <p className="mt-5 text-sm leading-6 text-stone-400">
+            {eliminatedPlayer.role === 'anarchist'
+              ? 'The table walked into the wildcard trap.'
+              : eliminatedPlayer.role === 'imposter'
+              ? livingInspector
+                ? 'A caught Imposter gets one chance to identify the hidden Inspector.'
+                : 'A caught Imposter gets one final attempt to decode the Citizen word.'
+              : eliminatedPlayer.role === 'sleeper'
+              ? 'The table removed an undercover Imposter ally.'
+              : 'The table eliminated a member of the Citizen team.'}
+          </p>
+          <button type="button" onClick={proceedFromReveal} className="cipher-button-primary w-full mt-7">
+            Resolve outcome <ArrowRight className="h-4 w-4" />
+          </button>
+        </section>
       )}
 
-      {/* 2. THE IMPOSTER'S LAST STAND (WORD GUESS) */}
-      {subPhase === 'last_stand' && (
-        <div className="space-y-5 text-center">
-          <div className="rounded-2xl border border-amber-500/30 bg-[#160c10] p-6 shadow-xl space-y-4">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono font-bold uppercase tracking-wider">
-              <Sparkles className="h-3 w-3" />
-              <span>THE LAST STAND</span>
-            </div>
-
-            <h2 className="font-display text-2xl font-bold text-slate-100">
-              {eliminatedPlayer.name}, guess the Citizen Word!
-            </h2>
-
-            <p className="text-xs text-amber-200/80 max-w-xs mx-auto leading-relaxed">
-              Category: <strong className="text-white">{categoryName}</strong>. If you correctly deduce the Citizens' word, Imposters steal the match victory!
-            </p>
-
-            <form onSubmit={handleLastStandGuess} className="space-y-3 pt-2">
-              <input
-                id="imposter-guess-input"
-                type="text"
-                placeholder="Enter exact secret word..."
-                value={imposterGuess}
-                onChange={(e) => setImposterGuess(e.target.value)}
-                autoFocus
-                className="w-full rounded-xl border border-white/[0.1] bg-slate-950/90 px-4 py-3 text-center font-display font-bold text-base text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
-              />
-
+      {subPhase === 'inspector_guess' && (
+        <section className="cipher-panel p-6 sm:p-8">
+          <div className="role-icon role-sky"><ScanSearch className="h-5 w-5" /></div>
+          <p className="cipher-kicker mt-5">Counter-phase / Inspector hunt</p>
+          <h1 className="font-display text-3xl font-black tracking-tight text-stone-50 mt-2">Name the investigator.</h1>
+          <p className="text-sm leading-6 text-stone-400 mt-3">Choose correctly to steal the match. A wrong read ends your counter-play.</p>
+          <div className="grid grid-cols-2 gap-2 mt-6">
+            {remaining.map(player => (
               <button
-                id="submit-imposter-guess-btn"
-                type="submit"
-                disabled={!imposterGuess.trim()}
-                className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-display font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-[0.98] disabled:opacity-40"
+                key={player.id}
+                type="button"
+                onClick={() => setInspectorGuessId(player.id)}
+                className={`rounded-xl border p-3 text-left text-sm font-bold transition-all ${inspectorGuessId === player.id ? 'border-sky-400 bg-sky-400/10 text-sky-100' : 'border-white/10 bg-white/[0.02] text-stone-300'}`}
               >
-                Submit Guess & Reveal Outcome
+                <span className="block text-[9px] font-mono text-stone-600 mb-1">SEAT {player.avatarSeed + 1}</span>
+                {player.name}
               </button>
-            </form>
+            ))}
           </div>
-        </div>
+          <button type="button" disabled={!inspectorGuessId} onClick={submitInspectorGuess} className="cipher-button-primary w-full mt-5 disabled:opacity-30">
+            Lock Inspector guess
+          </button>
+        </section>
+      )}
+
+      {subPhase === 'last_stand' && (
+        <section className="cipher-panel p-6 sm:p-8">
+          <div className="role-icon role-amber"><Sparkles className="h-5 w-5" /></div>
+          <p className="cipher-kicker mt-5">Counter-phase / Last Stand</p>
+          <h1 className="font-display text-3xl font-black tracking-tight text-stone-50 mt-2">Decode the Citizen word.</h1>
+          <p className="text-sm leading-6 text-stone-400 mt-3">Category: <strong className="text-stone-200">{categoryName}</strong>. An exact guess steals the match.</p>
+          <form onSubmit={submitWordGuess} className="mt-6 space-y-3">
+            <input value={wordGuess} onChange={event => setWordGuess(event.target.value)} autoFocus placeholder="Enter the secret word" className="cipher-input w-full text-center" />
+            <button type="submit" disabled={!wordGuess.trim()} className="cipher-button-primary w-full disabled:opacity-30">Submit final guess</button>
+          </form>
+        </section>
       )}
     </div>
   );

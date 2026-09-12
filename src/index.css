@@ -1,11 +1,31 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    color-scheme: dark;
+    background: #0b0b09;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    background: #0b0b09;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 18% -10%, rgba(255, 104, 70, 0.12), transparent 32rem),
+      radial-gradient(circle at 92% 30%, rgba(211, 255, 79, 0.055), transparent 26rem),
+      #0b0b09;
   }
 
   h1, h2, h3, .font-display {
@@ -14,6 +34,130 @@
 
   code, pre, .font-mono {
     font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+.cipher-shell {
+  background:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-color: transparent;
+}
+
+.cipher-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.75'/%3E%3C/svg%3E");
+}
+
+.cipher-kicker {
+  font-family: 'JetBrains Mono', monospace;
+  color: #8d8b82;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.cipher-panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background: rgba(18, 18, 16, 0.94);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.34);
+}
+
+.cipher-role-card {
+  --role: #ff6846;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--role) 35%, transparent);
+  border-radius: 28px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--role) 8%, #121210), #121210 60%);
+  padding: 24px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+}
+
+.cipher-role-card::after {
+  content: '';
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  right: -90px;
+  top: -100px;
+  border: 1px solid color-mix(in srgb, var(--role) 28%, transparent);
+  border-radius: 50%;
+}
+
+.role-rose { --role: #ff6846; }
+.role-emerald { --role: #48d597; }
+.role-sky { --role: #64b7ff; }
+.role-violet { --role: #ae8cff; }
+.role-amber { --role: #ffbc4d; }
+.role-lime { --role: #d3ff4f; }
+
+.role-icon {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--role, #ff6846) 34%, transparent);
+  border-radius: 999px;
+  color: var(--role, #ff6846);
+  background: color-mix(in srgb, var(--role, #ff6846) 9%, transparent);
+}
+
+.cipher-button-primary,
+.cipher-button-secondary,
+.cipher-button-acid,
+.cipher-button-ghost {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  padding: 0 18px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.cipher-button-primary { background: #ff6846; color: #17130f; }
+.cipher-button-primary:hover { background: #ff7b5e; }
+.cipher-button-secondary { border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.04); color: #e7e5df; }
+.cipher-button-acid { background: #d3ff4f; color: #10110b; }
+.cipher-button-ghost { border: 1px solid rgba(255,255,255,.1); color: #a8a69d; }
+.cipher-button-primary:active,
+.cipher-button-secondary:active,
+.cipher-button-acid:active,
+.cipher-button-ghost:active { transform: scale(.98); }
+
+.cipher-input {
+  min-height: 52px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  background: #090907;
+  padding: 0 16px;
+  color: #f5f5f0;
+  outline: none;
+}
+
+.cipher-input:focus { border-color: #ff6846; box-shadow: 0 0 0 3px rgba(255,104,70,.1); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

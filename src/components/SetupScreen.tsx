@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { 
   Users, UserPlus, Trash2, Shuffle, Sparkles, 
   Settings2, Flame, Eye, EyeOff, BookOpen, AlertCircle, Compass,
-  ShieldAlert, Vote, Calendar, RotateCcw, CheckCircle2, ShieldCheck
+  ShieldAlert, Vote, Calendar, RotateCcw, CheckCircle2, ShieldCheck,
+  ChevronDown, ScanSearch, Bomb, HeartHandshake, BadgeHelp
 } from 'lucide-react';
-import { GameMode, VotingStyle, WordCategory, WordPair } from '../types';
+import { GameMode, VotingStyle, WordCategory, WordPair, SpecialRoleConfig } from '../types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from '../data/wordPacks';
 import { selectNoRepeatPair, getVaultStats, resetPlayedPairsHistory } from '../utils/wordHistory';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
@@ -20,6 +21,7 @@ interface SetupScreenProps {
     votingStyle: VotingStyle;
     category: WordCategory;
     selectedPair: WordPair;
+    specialRoles: SpecialRoleConfig;
   }) => void;
   customPairs: WordPair[];
   onOpenCustomModal: () => void;
@@ -50,6 +52,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [vaultStats, setVaultStats] = useState(() => getVaultStats(BUILT_IN_CATEGORIES, customPairs));
   const [resetFeedback, setResetFeedback] = useState(false);
+  const [specialRolesOpen, setSpecialRolesOpen] = useState(true);
+  const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>({
+    anarchist: false,
+    inspector: false,
+    sleeper: false,
+    bodyguard: false
+  });
+
+  const isLargeLobby = playerNames.length >= 7;
 
   // Update vault stats when customPairs change
   React.useEffect(() => {
@@ -71,6 +82,12 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       setImpostersCount(maxAllowed as 1 | 2 | 3);
     }
   }, [playerNames.length, impostersCount]);
+
+  React.useEffect(() => {
+    if (!isLargeLobby) {
+      setSpecialRoles({ anarchist: false, inspector: false, sleeper: false, bodyguard: false });
+    }
+  }, [isLargeLobby]);
 
   const handleAddPlayer = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -118,6 +135,12 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       return;
     }
 
+    const specialRoleCount = Object.values(specialRoles).filter(Boolean).length;
+    if (specialRoleCount > playerNames.length - impostersCount) {
+      setErrorMessage('There are not enough non-Imposter seats for the selected special roles.');
+      return;
+    }
+
     // Determine category & pair
     let availableCategories = [...BUILT_IN_CATEGORIES];
     if (customPairs.length > 0) {
@@ -156,26 +179,53 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       useDoubleAgentDecoy: playerNames.length >= 4 ? useDoubleAgentDecoy : false,
       votingStyle,
       category: chosenCategory,
-      selectedPair: chosenPair
+      selectedPair: chosenPair,
+      specialRoles: isLargeLobby ? specialRoles : {
+        anarchist: false,
+        inspector: false,
+        sleeper: false,
+        bodyguard: false
+      }
     });
   };
 
   const maxImposters = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
 
+  const applyRecommendedRoles = () => {
+    if (!isLargeLobby) return;
+    setImpostersCount(playerNames.length >= 10 ? 3 : 2);
+    setSpecialRoles({
+      inspector: true,
+      bodyguard: playerNames.length >= 10,
+      sleeper: playerNames.length >= 9,
+      anarchist: playerNames.length >= 12
+    });
+    setUseDoubleAgentDecoy(false);
+    setSpecialRolesOpen(true);
+    triggerHaptic([30, 30, 50]);
+  };
+
+  const roleCards = [
+    { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Sees a private radar clue that includes at least one Imposter seat.', tone: 'sky' },
+    { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'May reveal once to cancel an elimination and force a new clue round.', tone: 'lime' },
+    { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the Citizen word, but secretly wins with the Imposters.', tone: 'violet' },
+    { key: 'anarchist' as const, name: 'Anarchist', team: 'Neutral', icon: Bomb, copy: 'Wins alone if the table votes them out.', tone: 'amber' }
+  ];
+
   return (
-    <div className="w-full max-w-lg mx-auto pb-28 pt-2 px-4 space-y-5">
+    <div className="w-full max-w-lg mx-auto pb-28 pt-5 px-4 space-y-5">
       {/* Session Header Card */}
-      <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 shadow-xl space-y-4">
+      <div className="relative overflow-hidden rounded-[28px] bg-[#151512] border border-white/[0.1] p-6 shadow-2xl space-y-5">
         <div className="flex items-start justify-between">
           <div>
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold tracking-widest uppercase text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md mb-2">
-              <Flame className="h-3 w-3" /> Pass & Play Engine
+            <div className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold tracking-widest uppercase text-[#ff8065] mb-3">
+              <Flame className="h-3 w-3" /> Offline social deduction
             </div>
-            <h1 className="font-display text-2xl font-bold text-slate-100 tracking-tight">
-              Host a Session
+            <h1 className="font-display text-4xl font-black text-stone-100 tracking-[-0.04em] leading-none">
+              Read the room.
             </h1>
             <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
-              Gather players in a circle. Hand this phone around to privately reveal secret words.
+              One phone. Private roles. Public suspicion. Build your cast and put every clue under pressure.
             </p>
           </div>
 
@@ -456,6 +506,104 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
         </div>
       </div>
 
+      {/* Large Lobby Special Roles */}
+      <section className={`rounded-2xl border overflow-hidden transition-all ${
+        isLargeLobby
+          ? 'border-lime-300/25 bg-[#11140d] shadow-[0_20px_70px_rgba(0,0,0,0.25)]'
+          : 'border-white/[0.06] bg-[#0c101a]/60 opacity-70'
+      }`}>
+        <button
+          type="button"
+          disabled={!isLargeLobby}
+          onClick={() => setSpecialRolesOpen(current => !current)}
+          className="w-full p-5 flex items-center justify-between gap-4 text-left disabled:cursor-not-allowed"
+        >
+          <div className="flex items-start gap-3">
+            <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${
+              isLargeLobby ? 'border-lime-300/30 bg-lime-300/10 text-lime-300' : 'border-white/10 text-slate-600'
+            }`}>
+              <BadgeHelp className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-display text-sm font-black uppercase tracking-wider text-stone-100">
+                  Large Lobby Roles
+                </h2>
+                <span className={`rounded-full px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest ${
+                  isLargeLobby ? 'bg-lime-300 text-stone-950' : 'bg-white/5 text-slate-500'
+                }`}>
+                  {isLargeLobby ? 'Unlocked' : '7+ players'}
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-stone-500 mt-1">
+                {isLargeLobby
+                  ? `${Object.values(specialRoles).filter(Boolean).length} active. Build an asymmetric cast for a noisier table.`
+                  : 'Add one more layer of hidden motives when the table reaches seven players.'}
+              </p>
+            </div>
+          </div>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${specialRolesOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isLargeLobby && specialRolesOpen && (
+          <div className="border-t border-white/[0.07] p-4 sm:p-5 space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-lime-300/15 bg-lime-300/[0.04] p-3">
+              <div>
+                <p className="text-xs font-bold text-lime-200">Balanced cast for {playerNames.length} players</p>
+                <p className="text-[10px] text-stone-500 mt-0.5">
+                  {playerNames.length <= 8
+                    ? '2 Imposters + Inspector'
+                    : playerNames.length < 12
+                    ? `${playerNames.length >= 10 ? '3' : '2'} Imposters + Inspector + Sleeper${playerNames.length >= 10 ? ' + Bodyguard' : ''}`
+                    : '3 Imposters + all four special roles'}
+                </p>
+              </div>
+              <button type="button" onClick={applyRecommendedRoles} className="shrink-0 rounded-lg bg-lime-300 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-stone-950 active:scale-95 transition-transform">
+                Apply setup
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {roleCards.map(({ key, name, team, icon: Icon, copy, tone }) => {
+                const active = specialRoles[key];
+                const activeTone = tone === 'sky'
+                  ? 'border-sky-400/45 bg-sky-400/[0.08]'
+                  : tone === 'lime'
+                  ? 'border-lime-300/45 bg-lime-300/[0.08]'
+                  : tone === 'violet'
+                  ? 'border-violet-400/45 bg-violet-400/[0.08]'
+                  : 'border-amber-400/45 bg-amber-400/[0.08]';
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setSpecialRoles(current => ({ ...current, [key]: !current[key] }));
+                      if (key === 'sleeper') setUseDoubleAgentDecoy(false);
+                      triggerHaptic(20);
+                    }}
+                    className={`rounded-xl border p-3.5 text-left transition-all ${active ? activeTone : 'border-white/[0.08] bg-black/10 hover:border-white/20'}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 text-stone-300" />
+                        <span className="text-xs font-bold text-stone-100">{name}</span>
+                      </div>
+                      <span className={`mt-0.5 h-4 w-7 rounded-full p-0.5 transition-colors ${active ? 'bg-lime-300' : 'bg-stone-800'}`}>
+                        <span className={`block h-3 w-3 rounded-full bg-stone-950 transition-transform ${active ? 'translate-x-3' : ''}`} />
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[10px] font-mono uppercase tracking-widest text-stone-500">{team}</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">{copy}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* 3. Voting Protocol: Open Accusation vs Blind Ballot */}
       <div className="rounded-2xl bg-[#0c101a] border border-white/[0.08] p-5 space-y-3.5">
         <div className="flex items-center justify-between">
@@ -663,13 +811,13 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       )}
 
       {/* Fixed Sticky Launch Button */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 p-4 bg-[#090d16]/95 border-t border-white/[0.08] backdrop-blur-md">
+      <div className="fixed bottom-0 left-0 right-0 z-30 p-4 bg-[#0b0b09]/92 border-t border-white/[0.08] backdrop-blur-xl">
         <div className="max-w-lg mx-auto space-y-2">
           <button
             id="start-cipher-game-btn"
             type="button"
             onClick={handleLaunch}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-display font-bold text-sm tracking-wider uppercase shadow-lg shadow-rose-950/40 active:scale-[0.98] transition-all"
+            className="cipher-button-primary w-full font-display uppercase tracking-[0.12em] shadow-xl shadow-black/30"
           >
             <span>Start Game ({playerNames.length} Players)</span>
           </button>
