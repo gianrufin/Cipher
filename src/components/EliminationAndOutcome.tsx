@@ -10,12 +10,16 @@ interface EliminationAndOutcomeProps {
   decoyWord: string;
   categoryName: string;
   roundsPlayed: number;
+  eliminationQueue: Player[];
+  queueIndex: number;
+  onContinueQueue: () => void;
   onNextRound: () => void;
   onGameOver: (summary: MatchSummary) => void;
 }
 
 const ROLE_LABELS: Record<RoleType, string> = {
   citizen: 'Citizen',
+  decoy: 'Decoy Citizen',
   imposter: 'Imposter',
   anarchist: 'Anarchist',
   inspector: 'Inspector',
@@ -24,7 +28,8 @@ const ROLE_LABELS: Record<RoleType, string> = {
 };
 
 export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
-  eliminatedPlayer, players, trueCitizenWord, categoryName, roundsPlayed, onNextRound, onGameOver
+  eliminatedPlayer, players, trueCitizenWord, categoryName, roundsPlayed,
+  eliminationQueue, queueIndex, onContinueQueue, onNextRound, onGameOver
 }) => {
   const [subPhase, setSubPhase] = useState<'reveal' | 'last_stand' | 'inspector_guess'>('reveal');
   const [wordGuess, setWordGuess] = useState('');
@@ -32,10 +37,13 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   const remaining = players.filter(player => !player.isEliminated);
   const remainingImposters = remaining.filter(player => player.role === 'imposter');
   const remainingBadTeam = remaining.filter(player => player.role === 'imposter' || player.role === 'sleeper');
-  const remainingCitizenTeam = remaining.filter(player => ['citizen', 'inspector', 'bodyguard'].includes(player.role));
+  const remainingCitizenTeam = remaining.filter(player => ['citizen', 'decoy', 'inspector', 'bodyguard'].includes(player.role));
   const livingInspector = remaining.find(player => player.role === 'inspector');
   const totalImposters = players.filter(player => player.role === 'imposter').length;
   const impostersCaught = players.filter(player => player.role === 'imposter' && player.isEliminated).length;
+  const hasNextElimination = Boolean(eliminationQueue[queueIndex + 1]);
+  const eliminatedQueuePlayers = eliminationQueue.filter(queued => players.find(player => player.id === queued.id)?.isEliminated);
+  const counterImposter = [...eliminatedQueuePlayers].reverse().find(player => player.role === 'imposter');
 
   useEffect(() => {
     playElimination();
@@ -62,11 +70,15 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   };
 
   const proceedFromReveal = () => {
-    if (eliminatedPlayer.role === 'anarchist') {
+    if (eliminatedPlayer.role === 'anarchist' && queueIndex === 0) {
       finish('anarchist', `${eliminatedPlayer.name} baited the table into an elimination and wins alone.`, eliminatedPlayer.name);
       return;
     }
-    if (eliminatedPlayer.role === 'imposter') {
+    if (hasNextElimination) {
+      onContinueQueue();
+      return;
+    }
+    if (remainingImposters.length === 0 && counterImposter) {
       setSubPhase(livingInspector ? 'inspector_guess' : 'last_stand');
       triggerHaptic(30);
       return;
@@ -78,7 +90,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
     event.preventDefault();
     const clean = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (clean(wordGuess) === clean(trueCitizenWord)) {
-      finish('imposters', `${eliminatedPlayer.name} decoded the Citizen word in the Last Stand.`, undefined, eliminatedPlayer.id);
+      finish('imposters', `${counterImposter?.name || 'The final Imposter'} decoded the Citizen word in the Last Stand.`, undefined, counterImposter?.id);
     } else {
       evaluateBoard();
     }
@@ -87,9 +99,11 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   const submitInspectorGuess = () => {
     if (!inspectorGuessId) return;
     if (inspectorGuessId === livingInspector?.id) {
-      finish('imposters', `${eliminatedPlayer.name} correctly identified the Inspector and stole the victory.`, undefined, eliminatedPlayer.id);
+      setSubPhase('last_stand');
+      setInspectorGuessId(null);
+      triggerHaptic(30);
     } else {
-      evaluateBoard();
+      finish('citizens', `${counterImposter?.name || 'The final Imposter'} failed to identify the Inspector.`);
     }
   };
 
@@ -99,6 +113,8 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
     ? 'text-amber-300 border-amber-400/30 bg-amber-400/10'
     : eliminatedPlayer.role === 'sleeper'
     ? 'text-violet-300 border-violet-400/30 bg-violet-400/10'
+    : eliminatedPlayer.role === 'decoy'
+    ? 'text-amber-300 border-amber-400/30 bg-amber-400/10'
     : 'text-emerald-300 border-emerald-400/30 bg-emerald-400/10';
 
   return (
@@ -115,17 +131,21 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
           </div>
           <p className="mt-5 text-sm leading-6 text-stone-400">
             {eliminatedPlayer.role === 'anarchist'
-              ? 'The table walked into the wildcard trap.'
+              ? queueIndex === 0
+                ? 'The table walked into the wildcard trap.'
+                : 'The Anarchist was exposed, but not in the first elimination slot needed for a solo win.'
               : eliminatedPlayer.role === 'imposter'
-              ? livingInspector
-                ? 'A caught Imposter gets one chance to identify the hidden Inspector.'
-                : 'A caught Imposter gets one final attempt to decode the Citizen word.'
+              ? hasNextElimination
+                ? 'An Imposter was caught. The remaining queued identity resolves next.'
+                : 'If this was the final Imposter, their counter-play begins after this reveal.'
               : eliminatedPlayer.role === 'sleeper'
               ? 'The table removed an undercover Imposter ally.'
+              : eliminatedPlayer.role === 'decoy'
+              ? 'They were innocent, but unknowingly received the alternate word.'
               : 'The table eliminated a member of the Citizen team.'}
           </p>
           <button type="button" onClick={proceedFromReveal} className="cipher-button-primary w-full mt-7">
-            Resolve outcome <ArrowRight className="h-4 w-4" />
+            {hasNextElimination ? `Reveal next: ${eliminationQueue[queueIndex + 1].name}` : 'Resolve outcome'} <ArrowRight className="h-4 w-4" />
           </button>
         </section>
       )}
@@ -135,7 +155,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
           <div className="role-icon role-sky"><ScanSearch className="h-5 w-5" /></div>
           <p className="cipher-kicker mt-5">Counter-phase / Inspector hunt</p>
           <h1 className="font-display text-3xl font-black tracking-tight text-stone-50 mt-2">Name the investigator.</h1>
-          <p className="text-sm leading-6 text-stone-400 mt-3">Choose correctly to steal the match. A wrong read ends your counter-play.</p>
+          <p className="text-sm leading-6 text-stone-400 mt-3">Choose correctly to unlock one final word guess. A wrong read gives Citizens the win.</p>
           <div className="grid grid-cols-2 gap-2 mt-6">
             {remaining.map(player => (
               <button
@@ -160,7 +180,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
           <div className="role-icon role-amber"><Sparkles className="h-5 w-5" /></div>
           <p className="cipher-kicker mt-5">Counter-phase / Last Stand</p>
           <h1 className="font-display text-3xl font-black tracking-tight text-stone-50 mt-2">Decode the Citizen word.</h1>
-          <p className="text-sm leading-6 text-stone-400 mt-3">Category: <strong className="text-stone-200">{categoryName}</strong>. An exact guess steals the match.</p>
+          <p className="text-sm leading-6 text-stone-400 mt-3">Category: <strong className="text-stone-200">{categoryName}</strong>. An exact word guess wins the match.</p>
           <form onSubmit={submitWordGuess} className="mt-6 space-y-3">
             <input value={wordGuess} onChange={event => setWordGuess(event.target.value)} autoFocus placeholder="Enter the secret word" className="cipher-input w-full text-center" />
             <button type="submit" disabled={!wordGuess.trim()} className="cipher-button-primary w-full disabled:opacity-30">Submit final guess</button>

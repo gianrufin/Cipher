@@ -18,15 +18,16 @@ interface PassAndRevealScreenProps {
 
 const ROLE_BRIEF: Record<RoleType, { label: string; team: string; mission: string; accent: string }> = {
   citizen: { label: 'Citizen', team: 'Citizen team', mission: 'Give a precise clue, compare stories, and expose every Imposter.', accent: 'emerald' },
+  decoy: { label: 'Citizen', team: 'Citizen team', mission: 'Give a precise clue, compare stories, and expose every Imposter.', accent: 'emerald' },
   imposter: { label: 'Imposter', team: 'Imposter team', mission: 'Blend in, infer the real word, and survive the table vote.', accent: 'rose' },
-  inspector: { label: 'Inspector', team: 'Citizen team', mission: 'Use your classified radar quietly. If you look like the investigator, a caught Imposter can identify you and steal the win.', accent: 'sky' },
+  inspector: { label: 'Inspector', team: 'Citizen team', mission: 'Use your classified radar quietly. If the final Imposter identifies you, they still need to decode the word.', accent: 'sky' },
   sleeper: { label: 'Sleeper Agent', team: 'Imposter ally', mission: 'You know the Citizen word, but win with the Imposters. You do not know who they are, and they do not know you.', accent: 'violet' },
-  anarchist: { label: 'Anarchist', team: 'Neutral', mission: 'Your only objective is to get voted out. Look suspicious without making the trap obvious.', accent: 'amber' },
-  bodyguard: { label: 'Bodyguard', team: 'Citizen team', mission: 'You may reveal once before an identity reveal to cancel the elimination and force a fresh clue round.', accent: 'lime' }
+  anarchist: { label: 'Anarchist', team: 'Neutral', mission: 'Get voted out after the first clue round. In a double elimination, you must rank first.', accent: 'amber' },
+  bodyguard: { label: 'Bodyguard', team: 'Citizen team', mission: 'Reveal once to protect another player. You cannot protect yourself.', accent: 'lime' }
 };
 
 const roleIcon = (role: RoleType) => {
-  const icons = { citizen: Shield, imposter: Flame, inspector: ScanSearch, sleeper: HeartHandshake, anarchist: Bomb, bodyguard: ShieldCheck };
+  const icons = { citizen: Shield, decoy: Shield, imposter: Flame, inspector: ScanSearch, sleeper: HeartHandshake, anarchist: Bomb, bodyguard: ShieldCheck };
   return icons[role];
 };
 
@@ -156,12 +157,6 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
               </div>
             )}
 
-            {currentPlayer.isDoubleAgentDecoy && (
-              <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-4 mb-4 text-xs text-amber-100">
-                Paranoid status: your word may be a decoy. You are still a Citizen.
-              </div>
-            )}
-
             <p className="text-sm leading-6 text-stone-300">{briefing.mission}</p>
             {currentPlayer.role === 'imposter' && accomplicesAware && fellowImposters.length > 0 && (
               <p className="mt-4 text-xs text-rose-200">Known accomplices: <strong>{fellowImposters.map(player => player.name).join(', ')}</strong></p>
@@ -184,4 +179,3 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
     </div>
   );
 };
-

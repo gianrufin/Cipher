@@ -5,7 +5,7 @@ import {
   Trash2, UserPlus, Users, Vote, WandSparkles
 } from 'lucide-react';
 import {
-  GameMode, SpecialRoleConfig, VotingStyle, WordAudience,
+  EliminationsPerVote, GameMode, SpecialRoleConfig, VotingStyle, WordAudience,
   WordCategory, WordDifficulty, WordPair
 } from '../types';
 import { BUILT_IN_CATEGORIES } from '../data/wordPacks';
@@ -19,7 +19,8 @@ interface SetupScreenProps {
     mode: GameMode;
     accomplicesAware: boolean;
     useModifiers: boolean;
-    useDoubleAgentDecoy: boolean;
+    decoyCount: 0 | 1 | 2;
+    eliminationsPerVote: EliminationsPerVote;
     votingStyle: VotingStyle;
     category: WordCategory;
     selectedPair: WordPair;
@@ -56,7 +57,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
   const [accomplicesAware, setAccomplicesAware] = useState(true);
   const [useModifiers, setUseModifiers] = useState(false);
-  const [useDoubleAgentDecoy, setUseDoubleAgentDecoy] = useState(false);
+  const [decoyCount, setDecoyCount] = useState<0 | 1 | 2>(0);
+  const [eliminationsPerVote, setEliminationsPerVote] = useState<EliminationsPerVote>(1);
   const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>(EMPTY_ROLES);
   const [audience, setAudience] = useState<WordAudience>('family');
   const [difficulty, setDifficulty] = useState<WordDifficulty>('easy');
@@ -64,12 +66,22 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
   const isLargeLobby = playerNames.length >= 7;
   const maxImposters = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
+  const baseMaxDecoys: 0 | 1 | 2 = playerNames.length < 4 ? 0 : playerNames.length <= 8 ? 1 : 2;
+  const maxDecoys: 0 | 1 | 2 = specialRoles.sleeper && playerNames.length < 11 ? Math.min(1, baseMaxDecoys) as 0 | 1 : baseMaxDecoys;
+  const maxSpecialRoles = playerNames.length <= 8 ? 2 : playerNames.length <= 12 ? 3 : 4;
+  const selectedSpecialCount = Object.values(specialRoles).filter(Boolean).length;
   const missingPlayers = Math.max(0, 4 - playerNames.length);
 
   useEffect(() => {
     if (impostersCount > maxImposters) setImpostersCount(maxImposters as 1 | 2 | 3);
     if (!isLargeLobby) setSpecialRoles(EMPTY_ROLES);
-  }, [impostersCount, isLargeLobby, maxImposters]);
+    if (!isLargeLobby) setEliminationsPerVote(1);
+    if (eliminationsPerVote === 2 && playerNames.length < 9 && specialRoles.anarchist) {
+      setSpecialRoles(current => ({ ...current, anarchist: false }));
+    }
+    if (decoyCount > maxDecoys) setDecoyCount(maxDecoys);
+    if (mode === 'blind' && decoyCount > 0) setDecoyCount(0);
+  }, [decoyCount, eliminationsPerVote, impostersCount, isLargeLobby, maxDecoys, maxImposters, mode, playerNames.length, specialRoles.anarchist]);
 
   const categories = useMemo(() => {
     const all: WordCategory[] = [...BUILT_IN_CATEGORIES];
@@ -133,15 +145,29 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     triggerHaptic(18);
   };
 
-  const applyRecommendedRoles = () => {
+  const applyBalancedRoles = () => {
     setImpostersCount(playerNames.length >= 10 ? 3 : 2);
     setSpecialRoles({
       inspector: true,
-      bodyguard: playerNames.length >= 10,
-      sleeper: playerNames.length >= 9,
-      anarchist: playerNames.length >= 12
+      bodyguard: true,
+      sleeper: false,
+      anarchist: false
     });
-    setUseDoubleAgentDecoy(false);
+    setDecoyCount(1);
+    if (playerNames.length >= 9) setEliminationsPerVote(2);
+    triggerHaptic([25, 25, 45]);
+  };
+
+  const applyChaoticRoles = () => {
+    setImpostersCount(playerNames.length >= 10 ? 3 : 2);
+    setSpecialRoles({
+      inspector: false,
+      bodyguard: false,
+      sleeper: true,
+      anarchist: eliminationsPerVote === 1 || playerNames.length >= 9
+    });
+    setDecoyCount(1);
+    if (playerNames.length >= 9) setEliminationsPerVote(2);
     triggerHaptic([25, 25, 45]);
   };
 
@@ -155,9 +181,9 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   };
 
   const launch = () => {
-    const reservedSeats = Object.values(specialRoles).filter(Boolean).length + (useDoubleAgentDecoy ? 1 : 0);
-    if (reservedSeats > playerNames.length - impostersCount) {
-      setErrorMessage('Reduce the Imposter count or remove one optional role. Every selected role needs its own seat.');
+    const reservedSeats = Object.values(specialRoles).filter(Boolean).length + decoyCount;
+    if (reservedSeats > playerNames.length - impostersCount - 2) {
+      setErrorMessage('Reduce the Imposter, Decoy, or special-role count. Keep at least two standard Citizens in the game.');
       setStep(2);
       return;
     }
@@ -178,7 +204,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       mode,
       accomplicesAware,
       useModifiers,
-      useDoubleAgentDecoy,
+      decoyCount,
+      eliminationsPerVote,
       votingStyle,
       category,
       selectedPair: selectNoRepeatPair(category),
@@ -195,10 +222,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     : 'Minimum reached. Ready to continue';
 
   const roleCards = [
-    { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Receives private radar intel.' },
-    { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'Cancels one elimination.' },
-    { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the Citizen word.' },
-    { key: 'anarchist' as const, name: 'Anarchist', team: 'Neutral', icon: Bomb, copy: 'Wins by getting voted out.' }
+    { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Gets a three-seat radar clue.' },
+    { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'Protects another player once.' },
+    { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the true Citizen word.' },
+    { key: 'anarchist' as const, name: 'Anarchist', team: 'Neutral', icon: Bomb, copy: 'Must rank first when voted out.' }
   ];
 
   return (
@@ -297,6 +324,17 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               value={votingStyle}
               onChange={value => setVotingStyle(value as VotingStyle)}
             />
+            {isLargeLobby && (
+              <ChoiceGroup
+                label="Eliminations per vote"
+                options={[
+                  { id: '1', title: 'Single', copy: 'The table eliminates one suspect.' },
+                  { id: '2', title: 'Double', copy: playerNames.length < 9 ? 'Two suspects. High risk with 7–8 players.' : 'Two suspects for a faster large-group game.' }
+                ]}
+                value={String(eliminationsPerVote)}
+                onChange={value => setEliminationsPerVote(Number(value) as EliminationsPerVote)}
+              />
+            )}
             <ToggleRow label="Round modifiers" copy="Add a random clue constraint each round." checked={useModifiers} onChange={setUseModifiers} />
           </section>
         )}
@@ -330,7 +368,28 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               <ToggleRow label="Known accomplices" copy="Imposters see each other's names." checked={accomplicesAware} onChange={setAccomplicesAware} />
             )}
 
-            <ToggleRow label="Paranoid Citizen" copy="One Citizen is warned that their word may be a decoy." checked={useDoubleAgentDecoy} onChange={setUseDoubleAgentDecoy} />
+            <div>
+              <p className="cipher-kicker mb-3">Decoy Citizens</p>
+              <div className="grid grid-cols-3 gap-2">
+                {([0, 1, 2] as const).map(count => (
+                  <button
+                    key={count}
+                    type="button"
+                    disabled={count > maxDecoys || mode === 'blind'}
+                    onClick={() => setDecoyCount(count)}
+                    className={`rounded-2xl border p-3 text-center transition-all disabled:cursor-not-allowed disabled:opacity-25 ${decoyCount === count ? 'border-amber-400 bg-amber-400/10' : 'border-white/10 bg-white/[0.025]'}`}
+                  >
+                    <span className="font-display text-xl font-black text-stone-100">{count}</span>
+                    <span className="mt-1 block text-[9px] uppercase tracking-wider text-stone-500">{count === 1 ? 'Decoy' : 'Decoys'}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] leading-5 text-stone-500">
+                {mode === 'blind'
+                  ? 'Unavailable in Blind Phantom mode.'
+                  : 'Innocent Citizens who unknowingly receive the alternate word.'}
+              </p>
+            </div>
 
             <div className={`rounded-[24px] border overflow-hidden ${isLargeLobby ? 'border-lime-300/25 bg-lime-300/[0.035]' : 'border-white/[0.07] bg-white/[0.02] opacity-60'}`}>
               <div className="p-5">
@@ -343,22 +402,29 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                     </div>
                   </div>
                   {isLargeLobby && (
-                    <button type="button" onClick={applyRecommendedRoles} className="rounded-lg bg-lime-300 px-2.5 py-2 text-[9px] font-black uppercase tracking-wider text-stone-950">Recommended</button>
+                    <div className="flex gap-1.5">
+                      <button type="button" onClick={applyBalancedRoles} className="rounded-lg bg-lime-300 px-2.5 py-2 text-[9px] font-black uppercase tracking-wider text-stone-950">Balanced</button>
+                      <button type="button" onClick={applyChaoticRoles} className="rounded-lg border border-amber-400/25 bg-amber-400/10 px-2.5 py-2 text-[9px] font-black uppercase tracking-wider text-amber-200">Chaotic</button>
+                    </div>
                   )}
                 </div>
               </div>
               {isLargeLobby && (
-                <div className="grid grid-cols-2 gap-2 border-t border-white/[0.07] p-3">
-                  {roleCards.map(({ key, name, team, icon: Icon, copy }) => (
+                <div className="border-t border-white/[0.07] p-3">
+                  <p className="mb-3 text-[10px] leading-4 text-stone-500">Choose a preset, or tap individual roles for a custom cast.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                  {roleCards.map(({ key, name, team, icon: Icon, copy }) => {
+                    const unavailableAnarchist = key === 'anarchist' && eliminationsPerVote === 2 && playerNames.length < 9;
+                    return (
                     <button
                       key={key}
                       type="button"
+                      disabled={unavailableAnarchist || (!specialRoles[key] && selectedSpecialCount >= maxSpecialRoles)}
                       aria-pressed={specialRoles[key]}
                       onClick={() => {
                         setSpecialRoles(current => ({ ...current, [key]: !current[key] }));
-                        if (key === 'sleeper') setUseDoubleAgentDecoy(false);
                       }}
-                      className={`rounded-xl border p-3 text-left ${specialRoles[key] ? 'border-lime-300/35 bg-lime-300/[0.07]' : 'border-white/[0.07] bg-black/10'}`}
+                      className={`rounded-xl border p-3 text-left disabled:cursor-not-allowed disabled:opacity-30 ${specialRoles[key] ? 'border-lime-300/35 bg-lime-300/[0.07]' : 'border-white/[0.07] bg-black/10'}`}
                     >
                       <div className="flex items-center justify-between">
                         <Icon className="h-4 w-4 text-stone-300" />
@@ -368,7 +434,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                       <p className="mt-1 text-[9px] font-mono uppercase text-stone-600">{team}</p>
                       <p className="mt-2 text-[10px] leading-4 text-stone-500">{copy}</p>
                     </button>
-                  ))}
+                    );
+                  })}
+                  </div>
+                  {eliminationsPerVote === 2 && playerNames.length < 9 && (
+                    <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-3 text-[10px] leading-4 text-amber-200">For 7–8 players, Double Elimination disables the Anarchist to prevent an overly volatile opening vote.</p>
+                  )}
+                  {eliminationsPerVote === 2 && decoyCount === 2 && (
+                    <p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] p-3 text-[10px] leading-4 text-rose-200">High-chaos setup: two Decoy Citizens plus two eliminations can swing the match very quickly.</p>
+                  )}
                 </div>
               )}
             </div>
@@ -449,8 +523,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
             <div className="cipher-panel overflow-hidden">
               <ReviewRow label="Players" value={`${playerNames.length} around the table`} />
-              <ReviewRow label="Game" value={`${mode === 'decoy' ? 'Decoy word' : 'Blind phantom'} · ${votingStyle === 'open' ? 'Open vote' : 'Secret ballot'}`} />
-              <ReviewRow label="Cast" value={`${impostersCount} Imposter${impostersCount > 1 ? 's' : ''} · ${Object.values(specialRoles).filter(Boolean).length} special roles`} />
+              <ReviewRow label="Game" value={`${mode === 'decoy' ? 'Decoy word' : 'Blind phantom'} · ${votingStyle === 'open' ? 'Open vote' : 'Secret ballot'} · ${eliminationsPerVote === 2 ? 'Double elimination' : 'Single elimination'}`} />
+              <ReviewRow label="Cast" value={`${impostersCount} Imposter${impostersCount > 1 ? 's' : ''} · ${decoyCount} Decoy${decoyCount === 1 ? '' : 's'} · ${Object.values(specialRoles).filter(Boolean).length} special roles`} />
               <ReviewRow label="Words" value={`${audience} · ${difficulty} · ${selectedCategoryId === 'random' ? 'Random mix' : categories.find(category => category.id === selectedCategoryId)?.name || 'Pinoy Everyday'}`} />
             </div>
 

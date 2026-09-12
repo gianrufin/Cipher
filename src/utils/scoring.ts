@@ -1,6 +1,6 @@
 import { MatchSummary, Player, PlayerCareerStats, PlayerMatchScore, RoleType } from '../types';
 
-const citizenRoles: RoleType[] = ['citizen', 'inspector', 'bodyguard'];
+const citizenRoles: RoleType[] = ['citizen', 'decoy', 'inspector', 'bodyguard'];
 
 export function didPlayerWin(player: Player, winner: MatchSummary['winner']): boolean {
   if (winner === 'citizens') return citizenRoles.includes(player.role);
