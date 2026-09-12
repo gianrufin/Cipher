@@ -327,6 +327,10 @@ export default function App() {
       setEliminationQueueIndex(nextIndex);
       finalizeElimination(eliminationQueue[nextIndex], updatedPlayers);
     } else {
+      setPlayers(updatedPlayers.map(player => player.isEliminated
+        ? player
+        : { ...player, roundsSurvived: (player.roundsSurvived || 0) + 1 }
+      ));
       setRoundNumber(current => current + 1);
       setPhase('clue_round');
     }
