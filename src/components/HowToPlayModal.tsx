@@ -37,7 +37,7 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
               <span>1. Single-Device Secret Pass</span>
             </div>
             <p className="text-slate-300 text-xs leading-relaxed">
-              Add a name and take a fresh in-app selfie for every player, then pass the device in sequence. Selfies stay in memory only and are erased at the result screen. Each player holds down the touch shield to reveal their role and secret word in private.
+              Add each name and take one in-app selfie per player, then pass the device in sequence. Selfies stay in memory for the group session and are reused for rematches. They are never written to the gallery or browser storage. Each player holds down the touch shield to reveal their role and secret word in private.
             </p>
           </div>
 

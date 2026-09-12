@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   GamePhase, Player, WordCategory, WordPair, GameMode, VotingStyle,
   RoundModifier, SessionStats, MatchSummary, SpecialRoleConfig, RoleType,
-  EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty
+  EjectionReveal, EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
 import { selectNoRepeatPair } from './utils/wordHistory';
@@ -20,6 +20,8 @@ import { BodyguardDecision } from './components/BodyguardDecision';
 import { calculateMatchScores, updateCareerStats } from './utils/scoring';
 import { CipherAtmosphere } from './components/CipherAtmosphere';
 import { RestartMatchModal } from './components/RestartMatchModal';
+import { GameModeScreen } from './components/GameModeScreen';
+import { OnlineRoomScreen } from './components/OnlineRoomScreen';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -61,6 +63,7 @@ export default function App() {
     }
   });
   const [setupPlayers, setSetupPlayers] = useState<string[]>([]);
+  const [setupPhotos, setSetupPhotos] = useState<string[]>([]);
 
   // Session Statistics Persistence
   const [sessionStats, setSessionStats] = useState<SessionStats>(() => {
@@ -85,7 +88,7 @@ export default function App() {
   const [phase, setPhase] = useState<GamePhase>(() => {
     try {
       const onboarded = localStorage.getItem('cipher_has_completed_onboarding');
-      return onboarded === 'true' ? 'setup' : 'onboarding';
+      return onboarded === 'true' ? 'mode_select' : 'onboarding';
     } catch {
       return 'onboarding';
     }
@@ -105,6 +108,8 @@ export default function App() {
   const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
   const [decoyCount, setDecoyCount] = useState<0 | 1 | 2>(0);
   const [eliminationsPerVote, setEliminationsPerVote] = useState<EliminationsPerVote>(1);
+  const [ejectionReveal, setEjectionReveal] = useState<EjectionReveal>('confirm');
+  const [allowSkip, setAllowSkip] = useState(true);
   const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>({
     anarchist: false,
     inspector: false,
@@ -137,6 +142,8 @@ export default function App() {
     useModifiers,
     decoyCount: selectedDecoyCount,
     eliminationsPerVote: selectedEliminationsPerVote,
+    ejectionReveal: selectedEjectionReveal,
+    allowSkip: selectedAllowSkip,
     votingStyle: chosenVotingStyle,
     category,
     selectedPair,
@@ -152,6 +159,8 @@ export default function App() {
     useModifiers: boolean;
     decoyCount: 0 | 1 | 2;
     eliminationsPerVote: EliminationsPerVote;
+    ejectionReveal: EjectionReveal;
+    allowSkip: boolean;
     votingStyle: VotingStyle;
     category: WordCategory;
     selectedPair: WordPair;
@@ -167,6 +176,7 @@ export default function App() {
       // ignore
     }
     setSetupPlayers(playerNames);
+    setSetupPhotos(playerPhotos);
 
     // Randomize whether wordA or wordB is the Citizen word
     const flip = Math.random() > 0.5;
@@ -182,6 +192,8 @@ export default function App() {
     setVotingStyle(chosenVotingStyle);
     setDecoyCount(selectedDecoyCount);
     setEliminationsPerVote(selectedEliminationsPerVote);
+    setEjectionReveal(selectedEjectionReveal);
+    setAllowSkip(selectedAllowSkip);
     setSpecialRoles(selectedSpecialRoles);
     setActiveDifficulty(difficulty);
     setActiveAudience(audience);
@@ -385,7 +397,6 @@ export default function App() {
       }
       return updated;
     });
-    setPlayers(current => current.map(player => ({ ...player, avatarPhoto: undefined })));
     setEliminatedPlayer(null);
     setPendingElimination(null);
     setEliminationQueue([]);
@@ -398,6 +409,7 @@ export default function App() {
     setCareerStats({});
     setSavedPlayers([]);
     setSetupPlayers([]);
+    setSetupPhotos([]);
     try {
       [
         'cipher_session_stats',
@@ -437,6 +449,8 @@ export default function App() {
       useModifiers: activeModifier !== null,
       decoyCount,
       eliminationsPerVote,
+      ejectionReveal,
+      allowSkip,
       votingStyle,
       category: cat,
       selectedPair: pair,
@@ -447,7 +461,10 @@ export default function App() {
   };
 
   const handleResetToSetup = () => {
-    if (players.length > 0) setSetupPlayers(players.map(player => player.name));
+    if (players.length > 0) {
+      setSetupPlayers(players.map(player => player.name));
+      setSetupPhotos(players.map(player => player.avatarPhoto || ''));
+    }
     setPhase('setup');
     setPlayers([]);
     setPassIndex(0);
@@ -477,7 +494,7 @@ export default function App() {
         onOpenOnboarding={() => setPhase('onboarding')}
         onOpenStats={matchSummary ? () => setPhase('game_stats') : undefined}
         onResetGame={() => setIsRestartOpen(true)}
-        gameActive={phase !== 'setup' && phase !== 'game_stats' && phase !== 'onboarding'}
+        gameActive={!['mode_select', 'setup', 'game_stats', 'onboarding', 'online_room'].includes(phase)}
         playerCount={players.length}
         hasSessionStats={sessionStats.gamesPlayed > 0}
       />
@@ -486,10 +503,13 @@ export default function App() {
       <main className="cipher-content flex-1 flex flex-col">
         {phase === 'onboarding' && (
           <GameOnboarding
-            onComplete={() => setPhase('setup')}
-            onSkip={() => setPhase('setup')}
+            onComplete={() => setPhase('mode_select')}
+            onSkip={() => setPhase('mode_select')}
           />
         )}
+
+        {phase === 'mode_select' && <GameModeScreen onLocal={() => setPhase('setup')} onOnline={() => setPhase('online_room')} />}
+        {phase === 'online_room' && <OnlineRoomScreen onBack={() => setPhase('mode_select')} />}
 
         {phase === 'setup' && (
           <SetupScreen
@@ -498,6 +518,7 @@ export default function App() {
             onOpenCustomModal={() => setIsCustomModalOpen(true)}
             savedPlayers={savedPlayers}
             initialPlayers={setupPlayers}
+            initialPlayerPhotos={setupPhotos}
             initialConfig={{
               impostersCount: Math.min(3, Math.max(1, players.filter(player => player.role === 'imposter').length || 1)) as 1 | 2 | 3,
               mode: gameMode,
@@ -506,6 +527,8 @@ export default function App() {
               useModifiers: activeModifier !== null,
               decoyCount,
               eliminationsPerVote,
+              ejectionReveal,
+              allowSkip,
               specialRoles,
               audience: activeAudience,
               difficulty: activeDifficulty,
@@ -542,7 +565,9 @@ export default function App() {
             players={players}
             initialVotingStyle={votingStyle}
             eliminationsPerVote={eliminationsPerVote}
+            allowSkip={allowSkip}
             onEliminatePlayers={handleEliminatePlayers}
+            onSkipVote={handleNextRound}
             onReturnToClues={() => setPhase('clue_round')}
           />
         )}
@@ -558,6 +583,7 @@ export default function App() {
             roundsPlayed={roundNumber}
             eliminationQueue={eliminationQueue}
             queueIndex={eliminationQueueIndex}
+            ejectionReveal={ejectionReveal}
             onContinueQueue={handleContinueEliminationQueue}
             onNextRound={handleNextRound}
             onGameOver={handleGameOver}
