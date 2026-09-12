@@ -10,19 +10,19 @@ The interface uses a playful Mystery Zine visual system: evidence cards, taped n
 
 The complete game runs on one phone. Players add names and take one temporary selfie each, then pass the phone for private role reveals and silent ballots. The app works offline after it has been installed as a PWA.
 
-### Live room beta
+### Live room
 
-A host creates a six-character room and shares its invite link. Players join from their own phones, add a name and temporary selfie, and receive a private voting dashboard. Ballots travel directly between browsers over WebRTC. A small Cloudflare Worker only introduces peers and does not receive game photos or ballots.
+A host creates a six-character room and shares its invite link. Players join from their own phones, add a name and temporary selfie, and receive a private dashboard for the whole match. Game messages travel directly between browsers over WebRTC. A small Cloudflare Worker only introduces peers and does not receive game photos, roles, words, clues, or ballots.
 
-Live rooms currently act as a synchronized private-ballot companion. The host still runs role assignment, clues, powers, ejections, scoring, and rematches through Pass and Play.
+The host configures the cast and easy word pack, then becomes the authority for private role assignment, synchronized reveal readiness, clue order, silent ballots, ejections, role counter-actions, outcomes, points, and rematches. At 7 or more players, special roles enter the online cast automatically in this order as lobby size grows: Inspector, Bodyguard, Sleeper Agent, and Anarchist.
 
 ## Match flow
 
 1. Choose Pass and Play or Live Room.
 2. Add players one at a time. Four players are required. Cipher shows how many more are needed.
 3. Take one selfie for each player. Photos remain only in memory for the active group and are reused for rematches. They are never written to the gallery or browser storage, and disappear when the group ends or the page closes.
-4. Configure the game through the five-page setup flow: Players, Game Style, Roles, Word Vault, and Review.
-5. Pass the phone. Each player holds the privacy shield to see their role and word.
+4. In Pass and Play, configure the game through Players, Game Style, Roles, Word Vault, and Review. In Live Room, the host selects the cast, ejection rules, and easy word pack.
+5. Each player privately reveals their role and word on the shared phone or their own Live Room dashboard.
 6. Give one useful but not obvious clue in the shown speaking order.
 7. Debate and vote. The game supports open pointing or silent ballots.
 8. Resolve the ejection and any role counter-actions.
@@ -95,6 +95,7 @@ The result Share Studio exports Story or Feed PNG cards in Victory and Leaderboa
 - Pass and Play needs no account or backend.
 - Live-room profiles and votes use WebRTC data channels. The signaling Worker relays only temporary connection descriptions.
 - Room state is memory-only and disappears after clients disconnect.
+- A dropped Live Room connection keeps the room code, peer identity, and in-memory selfie ready for quick reconnection. No photo is written to session storage.
 
 ## Local development
 
