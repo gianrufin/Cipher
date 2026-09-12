@@ -19,6 +19,7 @@ import { CustomPackModal } from './components/CustomPackModal';
 import { BodyguardDecision } from './components/BodyguardDecision';
 import { calculateMatchScores, updateCareerStats } from './utils/scoring';
 import { CipherAtmosphere } from './components/CipherAtmosphere';
+import { RestartMatchModal } from './components/RestartMatchModal';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -39,6 +40,7 @@ export default function App() {
   // Navigation & Modals
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [isRestartOpen, setIsRestartOpen] = useState(false);
 
   // Persistence: custom pairs & saved player roster
   const [customPairs, setCustomPairs] = useState<WordPair[]>(() => {
@@ -354,16 +356,25 @@ export default function App() {
     setPhase('game_stats');
   };
 
-  // Reset Session Stats
-  const handleResetSessionStats = () => {
+  // Explicit destructive reset. Custom word packs are intentionally preserved.
+  const handleResetAllData = () => {
     setSessionStats(INITIAL_SESSION_STATS);
     setCareerStats({});
+    setSavedPlayers([]);
+    setSetupPlayers([]);
     try {
-      localStorage.removeItem('cipher_session_stats');
-      localStorage.removeItem('cipher_player_career_stats');
+      [
+        'cipher_session_stats',
+        'cipher_player_career_stats',
+        'cipher_saved_players',
+        'cipher_played_pairs_history',
+        'cipher_has_completed_onboarding',
+        'cipher_theme'
+      ].forEach(key => localStorage.removeItem(key));
     } catch {
       // ignore
     }
+    window.location.reload();
   };
 
   // Play Rematch with same players
@@ -400,6 +411,16 @@ export default function App() {
     setPendingElimination(null);
   };
 
+  const handleRestartMatch = () => {
+    setIsRestartOpen(false);
+    handleRematch();
+  };
+
+  const handleEditSetup = () => {
+    setIsRestartOpen(false);
+    handleResetToSetup();
+  };
+
   return (
     <div className="cipher-shell min-h-screen flex flex-col font-sans antialiased selection:bg-[#ff6846] selection:text-stone-950">
       <CipherAtmosphere />
@@ -408,7 +429,7 @@ export default function App() {
         onOpenRules={() => setIsRulesOpen(true)}
         onOpenOnboarding={() => setPhase('onboarding')}
         onOpenStats={matchSummary ? () => setPhase('game_stats') : undefined}
-        onResetGame={handleResetToSetup}
+        onResetGame={() => setIsRestartOpen(true)}
         gameActive={phase !== 'setup' && phase !== 'game_stats' && phase !== 'onboarding'}
         playerCount={players.length}
         hasSessionStats={sessionStats.gamesPlayed > 0}
@@ -500,8 +521,8 @@ export default function App() {
             decoyWord={decoyWord}
             categoryName={activeCategory.name}
             onRematch={handleRematch}
-            onNewGame={handleResetToSetup}
-            onResetSessionStats={handleResetSessionStats}
+            onEditSetup={handleResetToSetup}
+            onResetAllData={handleResetAllData}
           />
         )}
       </main>
@@ -517,6 +538,13 @@ export default function App() {
         onClose={() => setIsCustomModalOpen(false)}
         customPairs={customPairs}
         onSaveCustomPairs={handleSaveCustomPairs}
+      />
+
+      <RestartMatchModal
+        isOpen={isRestartOpen}
+        onClose={() => setIsRestartOpen(false)}
+        onRestart={handleRestartMatch}
+        onEditSetup={handleEditSetup}
       />
     </div>
   );

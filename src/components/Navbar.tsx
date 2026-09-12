@@ -142,8 +142,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               id="nav-reset-game-btn"
               type="button"
               onClick={onResetGame}
-              aria-label="New game / Reset"
-              title="End round and return to setup"
+              aria-label="Restart match"
+              title="Restart this match"
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 transition-colors hover:bg-rose-500/20 hover:text-rose-200 active:scale-95"
             >
               <RotateCcw className="h-3.5 w-3.5" />

@@ -16,8 +16,8 @@ interface GameStatsScreenProps {
   decoyWord: string;
   categoryName: string;
   onRematch: () => void;
-  onNewGame: () => void;
-  onResetSessionStats: () => void;
+  onEditSetup: () => void;
+  onResetAllData: () => void;
 }
 
 const winnerMeta = {
@@ -28,7 +28,7 @@ const winnerMeta = {
 
 export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
   players, matchSummary, sessionStats, careerStats, trueCitizenWord, decoyWord,
-  categoryName, onRematch, onNewGame, onResetSessionStats
+  categoryName, onRematch, onEditSetup, onResetAllData
 }) => {
   const [shareOpen, setShareOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -132,14 +132,15 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
 
         {!showResetConfirm ? (
           <button type="button" onClick={() => setShowResetConfirm(true)} className="mx-auto flex items-center gap-1.5 text-[10px] text-stone-600 hover:text-stone-400">
-            <RefreshCw className="h-3 w-3" /> Reset statistics and player scores
+            <RefreshCw className="h-3 w-3" /> Reset all Cipher data
           </button>
         ) : (
           <div className="rounded-2xl border border-[#ff6846]/25 bg-[#ff6846]/[0.06] p-4 text-center">
-            <p className="text-xs text-stone-300">Clear every session result and player score saved on this device?</p>
+            <p className="text-xs font-bold text-stone-200">Reset everything saved by Cipher?</p>
+            <p className="mt-2 text-[11px] leading-5 text-stone-400">Player scores, saved groups, match history, and preferences will be removed. Custom word packs will stay.</p>
             <div className="mt-3 flex justify-center gap-2">
               <button type="button" onClick={() => setShowResetConfirm(false)} className="cipher-button-ghost">Cancel</button>
-              <button type="button" onClick={() => { onResetSessionStats(); setShowResetConfirm(false); triggerHaptic(20); }} className="cipher-button-primary">Clear scores</button>
+              <button type="button" onClick={() => { onResetAllData(); setShowResetConfirm(false); triggerHaptic(20); }} className="cipher-button-primary">Reset everything</button>
             </div>
           </div>
         )}
@@ -147,8 +148,8 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
 
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/[0.08] bg-[#0b0b09]/92 p-4 backdrop-blur-xl">
         <div className="mx-auto grid max-w-lg grid-cols-2 gap-2">
-          <button type="button" onClick={onNewGame} className="cipher-button-secondary"><Users className="h-4 w-4" /> New group</button>
-          <button type="button" onClick={onRematch} className="cipher-button-primary"><RotateCcw className="h-4 w-4" /> Rematch</button>
+          <button type="button" onClick={onEditSetup} className="cipher-button-secondary"><Users className="h-4 w-4" /> Edit setup</button>
+          <button type="button" onClick={onRematch} className="cipher-button-primary"><RotateCcw className="h-4 w-4" /> Play again</button>
         </div>
       </div>
 
@@ -172,4 +173,3 @@ const MiniStat = ({ value, label }: { value: string | number; label: string }) =
     <span className="mt-1 block text-[9px] font-mono uppercase tracking-wider text-stone-600">{label}</span>
   </div>
 );
-
