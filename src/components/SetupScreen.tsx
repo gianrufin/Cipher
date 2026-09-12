@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, BadgeHelp, Bomb, BookOpen, Check, ChevronRight,
+  ArrowLeft, ArrowRight, BadgeHelp, Bomb, BookOpen, Camera, Check, ChevronRight,
   EyeOff, Flame, HeartHandshake, ScanSearch, ShieldCheck, Sparkles,
   Trash2, UserPlus, Users, Vote, WandSparkles
 } from 'lucide-react';
@@ -11,10 +11,13 @@ import {
 import { BUILT_IN_CATEGORIES } from '../data/wordPacks';
 import { selectNoRepeatPair } from '../utils/wordHistory';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
+import { PlayerAvatar } from './PlayerAvatar';
+import { SelfieCaptureModal } from './SelfieCaptureModal';
 
 interface SetupScreenProps {
   onStartGame: (config: {
     playerNames: string[];
+    playerPhotos: string[];
     impostersCount: 1 | 2 | 3;
     mode: GameMode;
     accomplicesAware: boolean;
@@ -32,6 +35,19 @@ interface SetupScreenProps {
   onOpenCustomModal: () => void;
   savedPlayers: string[];
   initialPlayers?: string[];
+  initialConfig?: {
+    impostersCount: 1 | 2 | 3;
+    mode: GameMode;
+    votingStyle: VotingStyle;
+    accomplicesAware: boolean;
+    useModifiers: boolean;
+    decoyCount: 0 | 1 | 2;
+    eliminationsPerVote: EliminationsPerVote;
+    specialRoles: SpecialRoleConfig;
+    audience: WordAudience;
+    difficulty: WordDifficulty;
+    selectedCategoryId: string;
+  };
   onOpenOnboarding: () => void;
 }
 
@@ -46,23 +62,25 @@ const difficultyCopy: Record<WordDifficulty, string> = {
 };
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
-  onStartGame, customPairs, onOpenCustomModal, onOpenOnboarding, savedPlayers, initialPlayers = []
+  onStartGame, customPairs, onOpenCustomModal, onOpenOnboarding, savedPlayers, initialPlayers = [], initialConfig
 }) => {
   const [step, setStep] = useState(0);
   const [playerNames, setPlayerNames] = useState<string[]>(initialPlayers);
+  const [playerPhotos, setPlayerPhotos] = useState<Array<string | null>>(() => initialPlayers.map(() => null));
+  const [selfiePlayerIndex, setSelfiePlayerIndex] = useState<number | null>(null);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [impostersCount, setImpostersCount] = useState<1 | 2 | 3>(1);
-  const [mode, setMode] = useState<GameMode>('decoy');
-  const [votingStyle, setVotingStyle] = useState<VotingStyle>('open');
-  const [accomplicesAware, setAccomplicesAware] = useState(true);
-  const [useModifiers, setUseModifiers] = useState(false);
-  const [decoyCount, setDecoyCount] = useState<0 | 1 | 2>(0);
-  const [eliminationsPerVote, setEliminationsPerVote] = useState<EliminationsPerVote>(1);
-  const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>(EMPTY_ROLES);
-  const [audience, setAudience] = useState<WordAudience>('family');
-  const [difficulty, setDifficulty] = useState<WordDifficulty>('easy');
-  const [selectedCategoryId, setSelectedCategoryId] = useState('pinoy_everyday');
+  const [impostersCount, setImpostersCount] = useState<1 | 2 | 3>(initialConfig?.impostersCount || 1);
+  const [mode, setMode] = useState<GameMode>(initialConfig?.mode || 'decoy');
+  const [votingStyle, setVotingStyle] = useState<VotingStyle>(initialConfig?.votingStyle || 'open');
+  const [accomplicesAware, setAccomplicesAware] = useState(initialConfig?.accomplicesAware ?? true);
+  const [useModifiers, setUseModifiers] = useState(initialConfig?.useModifiers ?? false);
+  const [decoyCount, setDecoyCount] = useState<0 | 1 | 2>(initialConfig?.decoyCount || 0);
+  const [eliminationsPerVote, setEliminationsPerVote] = useState<EliminationsPerVote>(initialConfig?.eliminationsPerVote || 1);
+  const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>(() => ({ ...(initialConfig?.specialRoles || EMPTY_ROLES) }));
+  const [audience, setAudience] = useState<WordAudience>(initialConfig?.audience || 'family');
+  const [difficulty, setDifficulty] = useState<WordDifficulty>(initialConfig?.difficulty || 'easy');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(initialConfig?.selectedCategoryId || 'pinoy_everyday');
 
   const isLargeLobby = playerNames.length >= 7;
   const maxImposters = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
@@ -134,6 +152,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       return;
     }
     setPlayerNames(current => [...current, clean]);
+    setPlayerPhotos(current => [...current, null]);
+    setSelfiePlayerIndex(playerNames.length);
     setNewPlayerName('');
     setErrorMessage('');
     triggerHaptic(25);
@@ -141,6 +161,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
   const removePlayer = (index: number) => {
     setPlayerNames(current => current.filter((_, playerIndex) => playerIndex !== index));
+    setPlayerPhotos(current => current.filter((_, playerIndex) => playerIndex !== index));
+    setSelfiePlayerIndex(null);
     setErrorMessage('');
     triggerHaptic(18);
   };
@@ -171,7 +193,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     triggerHaptic([25, 25, 45]);
   };
 
-  const canContinue = step !== 0 || playerNames.length >= 4;
+  const missingSelfies = playerPhotos.filter(photo => !photo).length;
+  const canContinue = step !== 0 || (playerNames.length >= 4 && missingSelfies === 0);
 
   const continueSetup = () => {
     if (!canContinue) return;
@@ -181,6 +204,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   };
 
   const launch = () => {
+    if (playerPhotos.length !== playerNames.length || playerPhotos.some(photo => !photo)) {
+      setErrorMessage('Every player needs a fresh selfie before the game can start.');
+      setStep(0);
+      return;
+    }
     const reservedSeats = Object.values(specialRoles).filter(Boolean).length + decoyCount;
     if (reservedSeats > playerNames.length - impostersCount - 2) {
       setErrorMessage('Reduce the Imposter, Decoy, or special-role count. Keep at least two standard Citizens in the game.');
@@ -200,6 +228,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     triggerHaptic([45, 35, 60]);
     onStartGame({
       playerNames,
+      playerPhotos: playerPhotos as string[],
       impostersCount,
       mode,
       accomplicesAware,
@@ -217,6 +246,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
 
   const playerGuidance = missingPlayers
     ? `${missingPlayers} more player${missingPlayers === 1 ? '' : 's'} needed`
+    : missingSelfies
+    ? `${missingSelfies} player selfie${missingSelfies === 1 ? '' : 's'} needed`
     : playerNames.length >= 7
     ? 'Large Lobby Roles unlocked'
     : 'Minimum reached. Ready to continue';
@@ -280,7 +311,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   {savedPlayers.length >= 4 && (
                     <button
                       type="button"
-                      onClick={() => setPlayerNames(savedPlayers)}
+                      onClick={() => {
+                        setPlayerNames(savedPlayers);
+                        setPlayerPhotos(savedPlayers.map(() => null));
+                      }}
                       className="cipher-button-secondary mt-5"
                     >
                       <Users className="h-4 w-4" /> Load last group
@@ -288,9 +322,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   )}
                 </div>
               ) : playerNames.map((name, index) => (
-                <div key={name} className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3">
+                <div key={name} className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-3">
                   <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
-                  <span className="flex-1 text-sm font-bold text-stone-200">{name}</span>
+                  <PlayerAvatar name={name} src={playerPhotos[index]} className="h-11 w-11 border border-white/10 text-xs" />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold text-stone-200">{name}</span>
+                    <button type="button" onClick={() => setSelfiePlayerIndex(index)} className={`mt-1 flex items-center gap-1 text-[10px] font-bold ${playerPhotos[index] ? 'text-lime-300' : 'text-[#ff8065]'}`}>
+                      <Camera className="h-3 w-3" /> {playerPhotos[index] ? 'Retake selfie' : 'Take selfie'}
+                    </button>
+                  </div>
                   <button type="button" onClick={() => removePlayer(index)} aria-label={`Remove ${name}`} className="text-stone-600 hover:text-[#ff6846]">
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -539,6 +579,17 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           <p className="mt-5 rounded-xl border border-[#ff6846]/25 bg-[#ff6846]/10 px-3 py-2 text-xs text-[#ff9a84]">{errorMessage}</p>
         )}
       </main>
+
+      <SelfieCaptureModal
+        playerName={selfiePlayerIndex === null ? null : playerNames[selfiePlayerIndex]}
+        onClose={() => setSelfiePlayerIndex(null)}
+        onCapture={photo => {
+          if (selfiePlayerIndex === null) return;
+          setPlayerPhotos(current => current.map((value, index) => index === selfiePlayerIndex ? photo : value));
+          setSelfiePlayerIndex(null);
+          setErrorMessage('');
+        }}
+      />
 
       <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/[0.08] bg-[#0b0b09]/92 p-4 backdrop-blur-xl">
         <div className="mx-auto flex max-w-lg gap-2">

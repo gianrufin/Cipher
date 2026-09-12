@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowRight, Shield, ShieldCheck } from 'lucide-react';
 import { Player } from '../types';
 import { triggerHaptic } from '../utils/soundEffects';
+import { PlayerAvatar } from './PlayerAvatar';
 
 interface BodyguardDecisionProps {
   target: Player;
@@ -28,6 +29,7 @@ export const BodyguardDecision: React.FC<BodyguardDecisionProps> = ({
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-lime-300/40 bg-lime-300/10 text-lime-300 mb-5">
             <Shield className="h-5 w-5" />
           </div>
+          <PlayerAvatar name={target.name} src={target.avatarPhoto} className="mb-4 h-20 w-20 border border-white/10 text-xl" />
           <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Bodyguard window</p>
           <h1 className="font-display text-3xl font-black text-stone-50 mt-2 tracking-tight">
             The table chose {target.name}.

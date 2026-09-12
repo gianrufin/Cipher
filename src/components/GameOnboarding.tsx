@@ -327,7 +327,7 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
 
             <div className="flex items-center justify-center gap-2 text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
               <Lightbulb className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-              <span>Pro-tip: Hold the phone close to your chest before revealing!</span>
+              <span>Player selfies are used only during the match and erased when the result screen opens.</span>
             </div>
           </div>
         )}

@@ -26,6 +26,7 @@ export type WordAudience = 'family' | 'barkada' | 'mixed';
 export interface Player {
   id: string;
   name: string;
+  avatarPhoto?: string;
   role: RoleType;
   secretWord: string;
   isDecoyWord: boolean;
