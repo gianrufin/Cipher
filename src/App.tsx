@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   GamePhase, Player, WordCategory, WordPair, GameMode, VotingStyle,
-  RoundModifier, SessionStats, MatchSummary, SpecialRoleConfig, RoleType
+  RoundModifier, SessionStats, MatchSummary, SpecialRoleConfig, RoleType,
+  PlayerCareerStats, WordAudience, WordDifficulty
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
 import { selectNoRepeatPair } from './utils/wordHistory';
@@ -16,6 +17,7 @@ import { GameOnboarding } from './components/GameOnboarding';
 import { HowToPlayModal } from './components/HowToPlayModal';
 import { CustomPackModal } from './components/CustomPackModal';
 import { BodyguardDecision } from './components/BodyguardDecision';
+import { calculateMatchScores, updateCareerStats } from './utils/scoring';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -66,6 +68,15 @@ export default function App() {
     }
   });
 
+  const [careerStats, setCareerStats] = useState<Record<string, PlayerCareerStats>>(() => {
+    try {
+      const saved = localStorage.getItem('cipher_player_career_stats');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
   // Game Engine State
   const [phase, setPhase] = useState<GamePhase>(() => {
     try {
@@ -96,6 +107,8 @@ export default function App() {
     bodyguard: false
   });
   const [pendingElimination, setPendingElimination] = useState<Player | null>(null);
+  const [activeAudience, setActiveAudience] = useState<WordAudience>('family');
+  const [activeDifficulty, setActiveDifficulty] = useState<WordDifficulty>('easy');
 
   // Save custom pairs to local storage
   const handleSaveCustomPairs = (updated: WordPair[]) => {
@@ -118,7 +131,9 @@ export default function App() {
     votingStyle: chosenVotingStyle,
     category,
     selectedPair,
-    specialRoles: selectedSpecialRoles
+    specialRoles: selectedSpecialRoles,
+    difficulty,
+    audience
   }: {
     playerNames: string[];
     impostersCount: 1 | 2 | 3;
@@ -130,6 +145,8 @@ export default function App() {
     category: WordCategory;
     selectedPair: WordPair;
     specialRoles: SpecialRoleConfig;
+    difficulty: WordDifficulty;
+    audience: WordAudience;
   }) => {
     // Save player names for next time
     try {
@@ -153,6 +170,8 @@ export default function App() {
     setVotingStyle(chosenVotingStyle);
     setUseDoubleAgentDecoy(useDoubleAgentDecoy);
     setSpecialRoles(selectedSpecialRoles);
+    setActiveDifficulty(difficulty);
+    setActiveAudience(audience);
     setRoundNumber(1);
     setMatchSummary(null);
 
@@ -221,7 +240,9 @@ export default function App() {
         avatarSeed: idx,
         votesAgainst: 0,
         intel: assignedRole === 'inspector' ? inspectorIntel : undefined,
-        powerUsed: false
+        powerUsed: false,
+        roundsSurvived: 0,
+        successfulActions: 0
       };
     });
 
@@ -272,9 +293,15 @@ export default function App() {
   };
 
   const handleBodyguardVeto = () => {
-    setPlayers(current => current.map(player =>
-      player.role === 'bodyguard' ? { ...player, powerUsed: true } : player
-    ));
+    const protectedCitizenTeam = pendingElimination && ['citizen', 'inspector', 'bodyguard'].includes(pendingElimination.role);
+    setPlayers(current => current.map(player => ({
+      ...player,
+      roundsSurvived: player.isEliminated ? player.roundsSurvived : (player.roundsSurvived || 0) + 1,
+      ...(player.role === 'bodyguard' ? {
+        powerUsed: true,
+        successfulActions: (player.successfulActions || 0) + (protectedCitizenTeam ? 1 : 0)
+      } : {})
+    })));
     setPendingElimination(null);
     setRoundNumber(current => current + 1);
     setPhase('clue_round');
@@ -282,13 +309,28 @@ export default function App() {
 
   // Next round if game continues
   const handleNextRound = () => {
+    setPlayers(current => current.map(player => player.isEliminated
+      ? player
+      : { ...player, roundsSurvived: (player.roundsSurvived || 0) + 1 }
+    ));
     setRoundNumber(prev => prev + 1);
     setPhase('clue_round');
   };
 
   // Game over handler: records session metrics and transitions to Game Stats screen
   const handleGameOver = (summary: MatchSummary) => {
-    setMatchSummary(summary);
+    const playerScores = calculateMatchScores(players, summary);
+    const completedSummary = { ...summary, playerScores };
+    setMatchSummary(completedSummary);
+    setCareerStats(previous => {
+      const updated = updateCareerStats(previous, players, completedSummary, playerScores);
+      try {
+        localStorage.setItem('cipher_player_career_stats', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
     setSessionStats(prev => {
       const updated: SessionStats = {
         gamesPlayed: prev.gamesPlayed + 1,
@@ -312,8 +354,10 @@ export default function App() {
   // Reset Session Stats
   const handleResetSessionStats = () => {
     setSessionStats(INITIAL_SESSION_STATS);
+    setCareerStats({});
     try {
       localStorage.removeItem('cipher_session_stats');
+      localStorage.removeItem('cipher_player_career_stats');
     } catch {
       // ignore
     }
@@ -321,18 +365,7 @@ export default function App() {
 
   // Play Rematch with same players
   const handleRematch = () => {
-    let availableCategories = [...BUILT_IN_CATEGORIES];
-    if (customPairs.length > 0) {
-      availableCategories.push({
-        id: 'custom_pack',
-        name: 'Custom Word Pack',
-        iconName: 'BookOpen',
-        description: 'User created words and inside jokes.',
-        pairs: customPairs
-      });
-    }
-
-    const cat = availableCategories[Math.floor(Math.random() * availableCategories.length)];
+    const cat = activeCategory;
     const pair = selectNoRepeatPair(cat);
 
     const imposterCount = (players.filter(p => p.role === 'imposter').length || 1) as 1 | 2 | 3;
@@ -348,7 +381,9 @@ export default function App() {
       votingStyle,
       category: cat,
       selectedPair: pair,
-      specialRoles
+      specialRoles,
+      difficulty: activeDifficulty,
+      audience: activeAudience
     });
   };
 
@@ -454,6 +489,7 @@ export default function App() {
             players={players}
             matchSummary={matchSummary}
             sessionStats={sessionStats}
+            careerStats={careerStats}
             trueCitizenWord={trueCitizenWord}
             decoyWord={decoyWord}
             categoryName={activeCategory.name}

@@ -90,6 +90,11 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose 
           </div>
 
           {/* Unique Twist Highlights */}
+          <div className="rounded-xl border border-lime-300/20 bg-lime-300/[0.06] p-3.5 text-xs leading-relaxed text-lime-100/80">
+            <strong className="block text-lime-200 mb-1">Words, points, and sharing</strong>
+            Choose Family, Barkada, or Mixed words, then set Easy, Standard, or Tricky relationships. After the match, role objectives generate Match Points and update local player standings. The debrief can export branded Victory and Leaderboard cards or a transparent photo overlay.
+          </div>
+
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 flex gap-2.5 items-start">
             <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-200">

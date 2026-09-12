@@ -191,7 +191,7 @@ export const GameOnboarding: React.FC<GameOnboardingProps> = ({
                 How to Play Cipher
               </h2>
               <p className="text-xs text-slate-300/90 mt-2 max-w-sm mx-auto leading-relaxed">
-                Gather 3 to 16 players in a circle. You only need this <strong className="text-white">one phone</strong>. No apps to install and no accounts needed!
+                Gather 4 to 16 players in a circle. You only need this <strong className="text-white">one phone</strong>. No accounts needed.
               </p>
             </div>
 

@@ -42,13 +42,13 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
     triggerHaptic([90, 45, 130]);
   }, []);
 
-  const finish = (winner: MatchSummary['winner'], winReason: string, specialWinnerName?: string) => {
+  const finish = (winner: MatchSummary['winner'], winReason: string, specialWinnerName?: string, bonusPlayerId?: string) => {
     if (winner === 'citizens') {
       playVictory();
     } else {
       playImposterWin();
     }
-    onGameOver({ roundsPlayed, impostersCaughtThisMatch: impostersCaught, totalImposters, winner, winReason, specialWinnerName });
+    onGameOver({ roundsPlayed, impostersCaughtThisMatch: impostersCaught, totalImposters, winner, winReason, specialWinnerName, bonusPlayerId });
   };
 
   const evaluateBoard = () => {
@@ -78,7 +78,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
     event.preventDefault();
     const clean = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     if (clean(wordGuess) === clean(trueCitizenWord)) {
-      finish('imposters', `${eliminatedPlayer.name} decoded the Citizen word in the Last Stand.`);
+      finish('imposters', `${eliminatedPlayer.name} decoded the Citizen word in the Last Stand.`, undefined, eliminatedPlayer.id);
     } else {
       evaluateBoard();
     }
@@ -87,7 +87,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   const submitInspectorGuess = () => {
     if (!inspectorGuessId) return;
     if (inspectorGuessId === livingInspector?.id) {
-      finish('imposters', `${eliminatedPlayer.name} correctly identified the Inspector and stole the victory.`);
+      finish('imposters', `${eliminatedPlayer.name} correctly identified the Inspector and stole the victory.`, undefined, eliminatedPlayer.id);
     } else {
       evaluateBoard();
     }

@@ -1,6 +1,6 @@
 # Cipher: Social Deduction (1-Phone Party Game)
 
-**Cipher** is a mobile-first, face-to-face social deduction party game designed for **3 to 16 players using just a single phone**. No app installations, no accounts, and no complex setup required.
+**Cipher** is a mobile-first, face-to-face social deduction party game designed for **4 to 16 players using just a single phone**. No accounts or complex setup required.
 
 ---
 
@@ -45,6 +45,10 @@ This project is pre-configured with **relative asset paths** (`base: './'`) and 
 - **Custom Word Packs**: Add custom inside jokes, word pairs, and local themes saved directly in browser storage.
 - **Large Lobby Roles**: At 7+ players, unlock the Inspector, Bodyguard, Sleeper Agent, and Anarchist with real counter-phases, veto logic, and independent win conditions.
 - **Recommended Casts**: Apply balanced 7–8 and 9–12 player configurations from the setup screen in one tap.
+- **Guided Setup**: Configure the roster, play style, roles, word vault, and final review across five focused steps.
+- **Familiar Word Difficulty**: Choose Family, Barkada, or Mixed audiences and Easy, Standard, or Tricky relationships, including a curated Pinoy Everyday pack.
+- **Match Points & Standings**: Score role objectives, survival, captures, protection, and counter-play with persistent player standings on the device.
+- **Share Studio**: Export Victory, Leaderboard, or transparent Overlay cards in Story and Feed formats with privacy controls.
 
 ---
 

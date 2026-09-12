@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { 
-  Trophy, Flame, RotateCcw, Users, Target, Clock, 
-  BarChart3, RefreshCw, Sparkles, Shield, AlertTriangle
+import React, { useMemo, useState } from 'react';
+import {
+  Bomb, ChevronDown, Flame, RefreshCw, RotateCcw, Share2,
+  Shield, Trophy, Users
 } from 'lucide-react';
-import { Player, SessionStats, MatchSummary } from '../types';
+import { MatchSummary, Player, PlayerCareerStats, SessionStats } from '../types';
 import { triggerHaptic } from '../utils/soundEffects';
+import { ShareResultModal } from './ShareResultModal';
 
 interface GameStatsScreenProps {
   players: Player[];
   matchSummary: MatchSummary;
   sessionStats: SessionStats;
+  careerStats: Record<string, PlayerCareerStats>;
   trueCitizenWord: string;
   decoyWord: string;
   categoryName: string;
@@ -18,318 +20,156 @@ interface GameStatsScreenProps {
   onResetSessionStats: () => void;
 }
 
+const winnerMeta = {
+  citizens: { title: 'Citizens win', icon: Shield, tone: 'text-emerald-300', panel: 'border-emerald-400/25 bg-emerald-400/[0.06]' },
+  imposters: { title: 'Imposters win', icon: Flame, tone: 'text-[#ff8065]', panel: 'border-[#ff6846]/25 bg-[#ff6846]/[0.06]' },
+  anarchist: { title: 'Anarchist wins', icon: Bomb, tone: 'text-amber-300', panel: 'border-amber-400/25 bg-amber-400/[0.06]' }
+};
+
 export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
-  players,
-  matchSummary,
-  sessionStats,
-  trueCitizenWord,
-  decoyWord,
-  categoryName,
-  onRematch,
-  onNewGame,
-  onResetSessionStats
+  players, matchSummary, sessionStats, careerStats, trueCitizenWord, decoyWord,
+  categoryName, onRematch, onNewGame, onResetSessionStats
 }) => {
+  const [shareOpen, setShareOpen] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-
-  const {
-    roundsPlayed,
-    impostersCaughtThisMatch,
-    totalImposters,
-    winner,
-    winReason
-  } = matchSummary;
-
-  const totalSessionGames = sessionStats.gamesPlayed || 1;
-  const citizenWinPercent = Math.round((sessionStats.citizenWins / totalSessionGames) * 100);
-  const imposterWinPercent = Math.round((sessionStats.imposterWins / totalSessionGames) * 100);
-  const anarchistWinPercent = Math.round(((sessionStats.anarchistWins || 0) / totalSessionGames) * 100);
-  const winnerTitle = winner === 'citizens'
-    ? 'CITIZENS VICTORY'
-    : winner === 'imposters'
-    ? 'IMPOSTERS VICTORY'
-    : 'ANARCHIST VICTORY';
+  const [expandedScore, setExpandedScore] = useState<string | null>(null);
+  const meta = winnerMeta[matchSummary.winner];
+  const WinnerIcon = meta.icon;
+  const scores = matchSummary.playerScores || [];
+  const standings = useMemo(
+    () => Object.values(careerStats).sort((a, b) => b.totalPoints - a.totalPoints || b.wins - a.wins),
+    [careerStats]
+  );
 
   return (
-    <div className="w-full max-w-lg mx-auto pb-28 pt-2 px-4 space-y-5 animate-fadeIn">
-      {/* 1. Final Outcome Banner */}
-      <div
-        className={`rounded-2xl border p-6 shadow-xl text-center space-y-4 ${
-          winner === 'citizens'
-            ? 'border-emerald-500/30 bg-[#0a1410]'
-            : winner === 'anarchist'
-            ? 'border-amber-500/30 bg-[#171207]'
-            : 'border-rose-500/30 bg-[#160c10]'
-        }`}
-      >
-        <div className="flex justify-center">
-          <div
-            className={`flex h-14 w-14 items-center justify-center rounded-2xl border ${
-              winner === 'citizens'
-                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                : winner === 'anarchist'
-                ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-            }`}
-          >
-            {winner === 'citizens' ? <Trophy className="h-7 w-7" /> : <Flame className="h-7 w-7" />}
+    <>
+      <div className="w-full max-w-lg mx-auto pb-36 pt-5 px-4 space-y-5 animate-fadeIn">
+        <section className={`rounded-[28px] border p-6 text-center ${meta.panel}`}>
+          <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-current/20 ${meta.tone}`}>
+            <WinnerIcon className="h-6 w-6" />
           </div>
-        </div>
-
-        <div>
-          <span className="text-[10px] uppercase tracking-widest font-mono text-slate-400">
-            Mission Debrief
-          </span>
-          <h1 className="font-display text-3xl font-bold text-slate-100 mt-0.5">
-            {winnerTitle}
-          </h1>
-          <p className="text-xs text-slate-300/90 mt-1.5 max-w-sm mx-auto leading-relaxed">
-            {winReason}
-          </p>
-        </div>
-
-        {/* Word Reveal Comparison */}
-        <div className="pt-3 border-t border-white/[0.08] grid grid-cols-2 gap-2 text-left">
-          <div className="p-3 rounded-xl bg-slate-950/80 border border-emerald-500/20">
-            <span className="text-[10px] uppercase font-mono font-bold text-emerald-400 block mb-0.5">
-              Citizen Secret Word
-            </span>
-            <span className="font-display font-bold text-base text-white">
-              {trueCitizenWord}
-            </span>
+          <p className="cipher-kicker mt-5">Mission debrief</p>
+          <h1 className="mt-2 font-display text-4xl font-black tracking-[-0.04em] text-stone-50">{meta.title}</h1>
+          <p className="mx-auto mt-3 max-w-sm text-xs leading-5 text-stone-400">{matchSummary.winReason}</p>
+          <div className="mt-6 grid grid-cols-3 border-t border-white/[0.08] pt-5">
+            <MiniStat value={players.length} label="Players" />
+            <MiniStat value={matchSummary.roundsPlayed} label="Rounds" />
+            <MiniStat value={`${matchSummary.impostersCaughtThisMatch}/${matchSummary.totalImposters}`} label="Caught" />
           </div>
-          <div className="p-3 rounded-xl bg-slate-950/80 border border-rose-500/20">
-            <span className="text-[10px] uppercase font-mono font-bold text-rose-400 block mb-0.5">
-              {decoyWord ? 'Imposter Decoy Word' : 'Category'}
-            </span>
-            <span className="font-display font-bold text-base text-white">
-              {decoyWord || categoryName}
-            </span>
-          </div>
-        </div>
-      </div>
+          <button type="button" onClick={() => setShareOpen(true)} className="cipher-button-acid mt-6 w-full">
+            <Share2 className="h-4 w-4" /> Create share card
+          </button>
+        </section>
 
-      {/* 2. MATCH STATS SUMMARY */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#0c101a] p-5 space-y-4 shadow-xl">
-        <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">
-              <BarChart3 className="h-3.5 w-3.5" />
-            </div>
+        <section className="cipher-panel p-5">
+          <div className="flex items-end justify-between gap-3">
             <div>
-              <h2 className="font-display font-bold text-sm text-slate-100">Game Stats Summary</h2>
-              <p className="text-[11px] text-slate-400">Match recap and session performance</p>
+              <p className="cipher-kicker">Match points</p>
+              <h2 className="mt-2 font-display text-2xl font-black text-stone-50">Tonight's leaderboard</h2>
             </div>
-          </div>
-          <span className="text-[10px] font-mono bg-white/[0.04] text-slate-300 border border-white/[0.08] px-2.5 py-1 rounded-md">
-            Match #{sessionStats.gamesPlayed}
-          </span>
-        </div>
-
-        {/* Highlight Metrics Grid */}
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Rounds Played in this Game */}
-          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center flex flex-col items-center justify-center">
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
-              <Clock className="h-3.5 w-3.5 text-amber-400" />
-              <span>Rounds Played</span>
-            </div>
-            <span className="font-display text-3xl font-bold text-slate-100 tracking-tight">
-              {roundsPlayed}
-            </span>
-            <span className="text-[10px] text-slate-500 mt-0.5">
-              {roundsPlayed === 1 ? 'Single round decision' : `${roundsPlayed} rounds to resolution`}
-            </span>
+            <Trophy className="h-5 w-5 text-amber-300" />
           </div>
 
-          {/* Imposters Caught in this Game */}
-          <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center flex flex-col items-center justify-center">
-            <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-1">
-              <Target className="h-3.5 w-3.5 text-rose-400" />
-              <span>Imposters Caught</span>
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="font-display text-3xl font-bold text-rose-400 tracking-tight">
-                {impostersCaughtThisMatch}
-              </span>
-              <span className="text-xs font-display text-slate-500 font-semibold">
-                / {totalImposters}
-              </span>
-            </div>
-            <span className="text-[10px] text-slate-500 mt-0.5">
-              {impostersCaughtThisMatch === totalImposters ? 'All imposters unmasked' : 'Imposter infiltrated'}
-            </span>
-          </div>
-        </div>
-
-        {/* 3. SESSION STATS CARD (Total Imposters Caught across session) */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-300 flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3 text-amber-400" />
-              <span>Session Aggregate</span>
-            </span>
-            <span className="text-[10px] font-mono text-slate-400">All games played</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="p-2.5 rounded-lg bg-slate-950/70 border border-white/[0.06]">
-              <span className="text-[10px] text-slate-400 uppercase font-mono block">Caught</span>
-              <span className="font-display text-xl font-bold text-rose-300">
-                {sessionStats.totalImpostersCaught}
-              </span>
-              <span className="text-[9px] text-slate-500 block">Imposters</span>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-slate-950/70 border border-white/[0.06]">
-              <span className="text-[10px] text-slate-400 uppercase font-mono block">Rounds</span>
-              <span className="font-display text-xl font-bold text-amber-300">
-                {sessionStats.totalRoundsPlayed}
-              </span>
-              <span className="text-[9px] text-slate-500 block">Total Clues</span>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-slate-950/70 border border-white/[0.06]">
-              <span className="text-[10px] text-slate-400 uppercase font-mono block">Matches</span>
-              <span className="font-display text-xl font-bold text-slate-200">
-                {sessionStats.gamesPlayed}
-              </span>
-              <span className="text-[9px] text-slate-500 block">Completed</span>
-            </div>
-          </div>
-
-          {/* Citizen vs Imposter Win Ratio Bar */}
-          <div className="space-y-1.5 pt-1">
-            <div className="flex justify-between text-[10px] font-mono">
-              <span className="text-emerald-400">Citizens: {sessionStats.citizenWins} ({citizenWinPercent}%)</span>
-              <span className="text-rose-400">Imposters: {sessionStats.imposterWins} ({imposterWinPercent}%)</span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden flex">
-              <div
-                className="bg-emerald-500 h-full transition-all duration-500"
-                style={{ width: `${citizenWinPercent}%` }}
-              />
-              <div
-                className="bg-rose-500 h-full transition-all duration-500"
-                style={{ width: `${imposterWinPercent}%` }}
-              />
-              <div
-                className="bg-amber-400 h-full transition-all duration-500"
-                style={{ width: `${anarchistWinPercent}%` }}
-              />
-            </div>
-            {(sessionStats.anarchistWins || 0) > 0 && (
-              <p className="text-right text-[10px] font-mono text-amber-400">Anarchist: {sessionStats.anarchistWins} ({anarchistWinPercent}%)</p>
-            )}
-          </div>
-        </div>
-
-        {/* 4. Player Roles & Elimination Status Recap */}
-        <div className="space-y-2 pt-1">
-          <span className="text-[10px] uppercase font-mono font-bold text-slate-400 block tracking-wider">
-            Player Roster & Assigned Words
-          </span>
-          <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
-            {players.map(p => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-xs"
+          <div className="mt-5 space-y-2">
+            {scores.map((score, index) => (
+              <button
+                key={score.playerId}
+                type="button"
+                onClick={() => setExpandedScore(current => current === score.playerId ? null : score.playerId)}
+                className={`w-full rounded-2xl border p-3.5 text-left ${index === 0 ? 'border-amber-300/25 bg-amber-300/[0.06]' : 'border-white/[0.07] bg-white/[0.02]'}`}
               >
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-slate-200">{p.name}</span>
-                  {p.isEliminated ? (
-                    <span className="text-[9px] text-rose-400 font-mono">
-                      [Eliminated]
-                    </span>
-                  ) : (
-                    <span className="text-[9px] text-emerald-400 font-mono">
-                      [Survived]
-                    </span>
-                  )}
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full font-mono text-[10px] font-bold ${index === 0 ? 'bg-amber-300 text-stone-950' : 'bg-white/[0.06] text-stone-500'}`}>{index + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-stone-100">{score.name}</p>
+                    <p className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-stone-600">{score.role}</p>
+                  </div>
+                  <strong className="font-display text-xl text-stone-50">{score.points} <span className="text-[10px] text-stone-600">PTS</span></strong>
+                  <ChevronDown className={`h-4 w-4 text-stone-600 transition-transform ${expandedScore === score.playerId ? 'rotate-180' : ''}`} />
                 </div>
+                {expandedScore === score.playerId && (
+                  <div className="mt-3 border-t border-white/[0.07] pt-3 space-y-1">
+                    {score.reasons.length ? score.reasons.map(reason => <p key={reason} className="text-[11px] text-stone-400">{reason}</p>) : <p className="text-[11px] text-stone-600">No points earned this match.</p>}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400 truncate max-w-[110px]">
-                    "{p.secretWord || 'None'}"
-                  </span>
-                  <span
-                    className={`font-mono text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                      p.role === 'imposter'
-                        ? 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
-                        : p.isDoubleAgentDecoy
-                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                        : 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                    }`}
-                  >
-                    {p.isDoubleAgentDecoy ? 'PARANOID CITIZEN' : p.role.replace('_', ' ').toUpperCase()}
-                  </span>
+        <section className="cipher-panel p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="cipher-kicker">Session standings</p>
+              <h2 className="mt-2 font-display text-xl font-black text-stone-50">All-time on this device</h2>
+            </div>
+            <span className="rounded-full border border-white/10 px-2.5 py-1 text-[9px] font-mono text-stone-500">{sessionStats.gamesPlayed} games</span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {standings.slice(0, 8).map((career, index) => (
+              <div key={career.name.toLocaleLowerCase()} className="grid grid-cols-[24px_1fr_auto] items-center gap-3 border-b border-white/[0.06] py-3 last:border-0">
+                <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
+                <div>
+                  <p className="text-xs font-bold text-stone-200">{career.name}</p>
+                  <p className="mt-1 text-[9px] text-stone-600">{career.wins} wins · {career.currentStreak} streak · best {career.bestStreak}</p>
                 </div>
+                <span className="font-display text-lg font-black text-[#ff8065]">{career.totalPoints}</span>
               </div>
             ))}
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* 5. Session Stats Reset Option */}
-      <div className="text-center pt-1">
+        <section className="grid grid-cols-2 gap-2">
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
+            <p className="cipher-kicker">Citizen word</p>
+            <p className="mt-2 font-display text-xl font-black text-stone-50">{trueCitizenWord}</p>
+          </div>
+          <div className="rounded-2xl border border-[#ff6846]/20 bg-[#ff6846]/[0.04] p-4">
+            <p className="cipher-kicker">{decoyWord ? 'Decoy word' : 'Category'}</p>
+            <p className="mt-2 font-display text-xl font-black text-stone-50">{decoyWord || categoryName}</p>
+          </div>
+        </section>
+
         {!showResetConfirm ? (
-          <button
-            type="button"
-            onClick={() => setShowResetConfirm(true)}
-            className="text-[11px] text-slate-500 hover:text-slate-400 transition-colors inline-flex items-center gap-1"
-          >
-            <RefreshCw className="h-3 w-3" />
-            <span>Reset session statistics</span>
+          <button type="button" onClick={() => setShowResetConfirm(true)} className="mx-auto flex items-center gap-1.5 text-[10px] text-stone-600 hover:text-stone-400">
+            <RefreshCw className="h-3 w-3" /> Reset statistics and player scores
           </button>
         ) : (
-          <div className="rounded-xl border border-rose-500/30 bg-[#160c10] p-3 text-xs text-rose-200 space-y-2">
-            <p>Clear all session statistics (rounds played & imposters caught)?</p>
-            <div className="flex justify-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  onResetSessionStats();
-                  setShowResetConfirm(false);
-                  triggerHaptic(20);
-                }}
-                className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors"
-              >
-                Confirm Reset
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="px-3 py-1 rounded-lg bg-white/[0.06] text-slate-300 text-xs"
-              >
-                Cancel
-              </button>
+          <div className="rounded-2xl border border-[#ff6846]/25 bg-[#ff6846]/[0.06] p-4 text-center">
+            <p className="text-xs text-stone-300">Clear every session result and player score saved on this device?</p>
+            <div className="mt-3 flex justify-center gap-2">
+              <button type="button" onClick={() => setShowResetConfirm(false)} className="cipher-button-ghost">Cancel</button>
+              <button type="button" onClick={() => { onResetSessionStats(); setShowResetConfirm(false); triggerHaptic(20); }} className="cipher-button-primary">Clear scores</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* 6. Sticky Action Buttons: Rematch or New Players */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 p-4 bg-[#090d16]/95 border-t border-white/[0.08] backdrop-blur-md">
-        <div className="max-w-lg mx-auto space-y-2">
-          <button
-            id="stats-rematch-btn"
-            type="button"
-            onClick={onRematch}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-display font-bold text-xs uppercase tracking-wider shadow-md active:scale-[0.98] transition-all"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span>Rematch (Same Players)</span>
-          </button>
-
-          <button
-            id="stats-new-game-btn"
-            type="button"
-            onClick={onNewGame}
-            className="w-full py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white font-semibold text-xs border border-white/[0.08] transition-colors"
-          >
-            Change Setup & Roster
-          </button>
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/[0.08] bg-[#0b0b09]/92 p-4 backdrop-blur-xl">
+        <div className="mx-auto grid max-w-lg grid-cols-2 gap-2">
+          <button type="button" onClick={onNewGame} className="cipher-button-secondary"><Users className="h-4 w-4" /> New group</button>
+          <button type="button" onClick={onRematch} className="cipher-button-primary"><RotateCcw className="h-4 w-4" /> Rematch</button>
         </div>
       </div>
-    </div>
+
+      <ShareResultModal
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+        players={players}
+        matchSummary={matchSummary}
+        careerStats={careerStats}
+        trueCitizenWord={trueCitizenWord}
+        decoyWord={decoyWord}
+        categoryName={categoryName}
+      />
+    </>
   );
 };
+
+const MiniStat = ({ value, label }: { value: string | number; label: string }) => (
+  <div>
+    <strong className="block font-display text-2xl font-black text-stone-50">{value}</strong>
+    <span className="mt-1 block text-[9px] font-mono uppercase tracking-wider text-stone-600">{label}</span>
+  </div>
+);
+
