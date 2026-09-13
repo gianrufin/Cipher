@@ -102,7 +102,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   const publicAnarchistWin = eliminatedPlayer.role === 'anarchist' && queueIndex === 0;
   const revealAlignment = ejectionReveal === 'confirm' || publicAnarchistWin;
   const isImposter = eliminatedPlayer.role === 'imposter';
-  const identityLabel = publicAnarchistWin ? 'ANARCHIST' : !revealAlignment ? 'IDENTITY CLASSIFIED' : isImposter ? 'IMPOSTER' : 'NOT AN IMPOSTER';
+  const identityLabel = publicAnarchistWin ? 'WILD CARD' : !revealAlignment ? 'IDENTITY CLASSIFIED' : isImposter ? 'IMPOSTER' : 'NOT AN IMPOSTER';
   const tone = !revealAlignment
     ? 'text-stone-300 border-white/15 bg-white/[0.04]'
     : isImposter
@@ -129,7 +129,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
             {publicAnarchistWin
               ? queueIndex === 0
                 ? 'The table walked into the wildcard trap.'
-                : 'The Anarchist was exposed, but not in the first elimination slot needed for a solo win.'
+                : 'The Wild Card was exposed, but not in the first elimination slot needed for a solo win.'
               : !revealAlignment
               ? `${eliminatedPlayer.name} was ejected. Their alignment and the remaining Imposter count stay classified until the debrief.`
               : isImposter

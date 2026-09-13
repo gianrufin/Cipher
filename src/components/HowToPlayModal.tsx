@@ -1,121 +1,29 @@
-import React from 'react';
-import { X, Smartphone, EyeOff, MessageSquare, Vote, Sparkles, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, ChevronRight, Clock3, EyeOff, ShieldQuestion, Vote, X } from 'lucide-react';
+import { RoleArchive } from './RoleArchive';
 
-interface HowToPlayModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+const chapters = [
+  {id:'core',title:'Core rules',copy:'The complete game in sixty seconds.',icon:ShieldQuestion},
+  {id:'reveal',title:'Private reveal',copy:'How to pass the phone without leaking a role.',icon:EyeOff},
+  {id:'clues',title:'Clues and timer',copy:'What counts as a fair clue and how turns work.',icon:Clock3},
+  {id:'voting',title:'Voting and winning',copy:'Open accusations, private ballots, and ties.',icon:Vote},
+  {id:'roles',title:'Role archive',copy:'Every alignment, power, and win condition.',icon:ShieldQuestion}
+];
 
-export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ isOpen, onClose }) => {
-  if (!isOpen) return null;
+export const HowToPlayModal = ({isOpen,onClose}:{isOpen:boolean;onClose:()=>void}) => {
+  const [chapter,setChapter]=useState(''); if(!isOpen)return null;
+  return <div className="fixed inset-0 z-[90] bg-[var(--canvas)]"><div className="mx-auto flex h-full w-full max-w-lg flex-col px-5 pb-6 pt-5">
+    <header className="flex items-center justify-between"><button onClick={()=>chapter?setChapter(''):onClose()} className="cipher-icon-button" aria-label="Back">{chapter?<ArrowLeft className="h-5 w-5"/>:<X className="h-5 w-5"/>}</button><span className="cipher-eyebrow">How to play</span><span className="w-11"/></header>
+    {!chapter?<main className="flex-1 overflow-y-auto pt-9"><p className="cipher-eyebrow">Cipher field guide</p><h1 className="mt-2 font-display text-5xl font-black tracking-[-.06em]">Learn only what you need.</h1><p className="mt-4 text-sm leading-6 text-[var(--muted)]">Open a chapter without losing your place in the game.</p><div className="chapter-list mt-8">{chapters.map(({id,title,copy,icon:Icon},index)=><button key={id} onClick={()=>setChapter(id)}><span>{String(index+1).padStart(2,'0')}</span><Icon className="h-5 w-5"/><div><strong>{title}</strong><small>{copy}</small></div><ChevronRight className="h-5 w-5"/></button>)}</div></main>:<main className="flex-1 overflow-y-auto pt-7">{chapter==='roles'?<RoleArchive embedded/>:<Chapter id={chapter}/>}</main>}
+  </div></div>;
+};
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl border border-white/[0.08] bg-[#0c101a] text-slate-100 shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] p-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-rose-400" />
-            <h2 className="font-display font-bold text-base text-slate-100">Rules & Mechanics</h2>
-          </div>
-          <button
-            id="close-rules-btn"
-            type="button"
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-slate-400 hover:text-white"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm leading-relaxed">
-          {/* Step 1 */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 space-y-1">
-            <div className="flex items-center gap-2 text-rose-400 font-semibold text-xs uppercase tracking-wide">
-              <Smartphone className="h-3.5 w-3.5" />
-              <span>1. Single-Device Secret Pass</span>
-            </div>
-            <p className="text-slate-300 text-xs leading-relaxed">
-              Add each name and take one in-app selfie per player, then pass the device in sequence. Selfies stay in memory for the group session and are reused for rematches. They are never written to the gallery or browser storage. Each player holds down the touch shield to reveal their role and secret word in private.
-            </p>
-          </div>
-
-          {/* Step 2 */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 space-y-2">
-            <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs uppercase tracking-wide">
-              <EyeOff className="h-3.5 w-3.5" />
-              <span>2. The Secret Roles & Words</span>
-            </div>
-            <div className="grid grid-cols-1 gap-2 text-xs">
-              <div className="rounded-lg bg-emerald-950/20 border border-emerald-500/20 p-2.5">
-                <span className="font-bold text-emerald-300 block mb-0.5">Citizens:</span>
-                All Citizens share the identical <strong>True Secret Word</strong> (e.g., "Mango").
-              </div>
-              <div className="rounded-lg bg-rose-950/20 border border-rose-500/20 p-2.5">
-                <span className="font-bold text-rose-300 block mb-0.5">Imposters:</span>
-                In <strong>Decoy Mode</strong>, Imposters receive a familiar paired word (e.g., "Banana"). In <strong>Blind Mode</strong>, they only know the category!
-              </div>
-              <div className="rounded-lg bg-amber-950/20 border border-amber-500/20 p-2.5">
-                <span className="font-bold text-amber-300 block mb-0.5">Decoy Citizen (Optional Twist):</span>
-                A Decoy Citizen appears to be a normal Citizen and unknowingly receives the alternate word. They still win with Citizens, but their honest clues may distract the table. Choose up to two when the lobby allows it.
-              </div>
-              <div className="rounded-lg bg-sky-950/20 border border-sky-500/20 p-2.5">
-                <span className="font-bold text-sky-300 block mb-0.5">Large Lobby Roles (7+):</span>
-                The Inspector receives private radar intel. The Bodyguard can protect another player once. The Sleeper Agent knows the Citizen word but wins with the Imposters. The neutral Anarchist wins alone by ranking first in an elimination vote.
-              </div>
-            </div>
-          </div>
-
-          {/* Step 3 */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 space-y-1">
-            <div className="flex items-center gap-2 text-sky-400 font-semibold text-xs uppercase tracking-wide">
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span>3. Face-to-Face Clues & Speaker Countdown</span>
-            </div>
-            <p className="text-slate-300 text-xs leading-relaxed">
-              Speaking turns are strategically shuffled to separate imposters. Each turn auto-begins with an audio <strong>3-second pre-countdown</strong> to prime the speaker before their turn timer ticks down. Give ONE subtle clue!
-            </p>
-          </div>
-
-          {/* Step 4 */}
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 space-y-1">
-            <div className="flex items-center gap-2 text-purple-400 font-semibold text-xs uppercase tracking-wide">
-              <Vote className="h-3.5 w-3.5" />
-              <span>4. Open Accusation or Blind Ballot</span>
-            </div>
-            <p className="text-slate-300 text-xs leading-relaxed">
-              Use <strong>Open Accusation</strong> for live table debate with an audio 3-2-1 simultaneous finger point countdown, or <strong>Blind Ballot</strong> to pass the phone around for confidential voting. Large lobbies may queue two different suspects. Ties at the cutoff return to an open decision. The Bodyguard may protect another player before their reveal. After the final Imposter is caught, they must identify a living Inspector before unlocking the Last Stand word guess.
-            </p>
-          </div>
-
-          {/* Unique Twist Highlights */}
-          <div className="rounded-xl border border-lime-300/20 bg-lime-300/[0.06] p-3.5 text-xs leading-relaxed text-lime-100/80">
-            <strong className="block text-lime-200 mb-1">Words, points, and sharing</strong>
-            Choose Family, Barkada, or Mixed words, then set Easy, Standard, or Tricky relationships. After the match, role objectives generate Match Points and update local player standings. The debrief can export branded Victory and Leaderboard cards or a transparent photo overlay.
-          </div>
-
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 flex gap-2.5 items-start">
-            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-200">
-              <strong className="text-amber-300 block mb-0.5">The Decoy Word Advantage:</strong>
-              With Decoy Words, imposters are active participants rather than silent observers, leading to hilarious misunderstandings and layered bluffing.
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="border-t border-white/[0.08] p-4">
-          <button
-            id="got-it-rules-btn"
-            type="button"
-            onClick={onClose}
-            className="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs uppercase tracking-wider shadow-md transition-all active:scale-[0.98]"
-          >
-            Ready to Play
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+const Chapter=({id}:{id:string})=>{
+  const content:Record<string,{kicker:string;title:string;intro:string;items:{title:string;copy:string}[]}>= {
+    core:{kicker:'The objective',title:'Find who does not belong.',intro:'Most players receive the true word. Imposters receive a related decoy or only the category.',items:[{title:'Pass',copy:'Each player holds the screen to view their private role and word.'},{title:'Clue',copy:'Give one useful clue without saying either secret word.'},{title:'Accuse',copy:'Discuss what sounded suspicious and lock a vote.'},{title:'Survive',copy:'The Crew catches every Imposter before the Imposter team controls the table.'}]},
+    reveal:{kicker:'Keep it private',title:'Hold to see. Release to hide.',intro:'Shield the phone before touching the reveal control. Every role uses identical color and brightness.',items:[{title:'Only the first viewer can replace a word',copy:'Use “Seen this word before?” before passing the device.'},{title:'Never announce the role screen',copy:'Return to the concealed handoff before giving the phone away.'}]},
+    clues:{kicker:'The clue round',title:'Useful, but never obvious.',intro:'The host starts the sequence. Each speaker gets a 3-second preparation countdown followed by their selected timer.',items:[{title:'Finish early',copy:'Tap Clue given to stop the clock and prepare the next speaker.'},{title:'Time is up',copy:'The app sounds a cue but never advances automatically.'},{title:'Need pressure?',copy:'Draw a cross-examination prompt after clues are complete.'}]},
+    voting:{kicker:'The accusation',title:'Choose, check, confirm.',intro:'Open voting supports table debate. Blind voting passes a private ballot around the group.',items:[{title:'Confirm every ballot',copy:'A selected player or skip is shown once more before it is locked.'},{title:'Ties return to the table',copy:'Runoff candidates are narrowed without exposing individual votes.'},{title:'Last Stand',copy:'A caught final Imposter may still steal the game by identifying the secret word.'}]}
+  }; const page=content[id]||content.core;
+  return <article><p className="cipher-eyebrow">{page.kicker}</p><h1 className="mt-2 font-display text-5xl font-black tracking-[-.06em]">{page.title}</h1><p className="mt-5 text-base font-semibold leading-7 text-[var(--muted)]">{page.intro}</p><div className="rule-list mt-8">{page.items.map((item,index)=><section key={item.title}><span>{String(index+1).padStart(2,'0')}</span><div><h2>{item.title}</h2><p>{item.copy}</p></div></section>)}</div></article>;
 };

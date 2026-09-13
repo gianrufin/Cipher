@@ -5,7 +5,7 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
     if (url.pathname === '/health') return cors(Response.json({ ok: true, service: 'cipher-signaling' }));
-    const crewMatch = url.pathname.match(/^\/crew\/([A-Z0-9]{4,8})\/(history|reserve)$/i);
+    const crewMatch = url.pathname.match(/^\/crew\/([A-Z0-9]{4,8})\/(history|reserve|profile)$/i);
     if (crewMatch) {
       const crew = env.ROOMS.get(env.ROOMS.idFromName(`crew:${crewMatch[1].toUpperCase()}`));
       return cors(await crew.fetch(request));
@@ -37,6 +37,16 @@ export class CipherRoom {
 
   async fetch(request: Request) {
     const url = new URL(request.url);
+    if (url.pathname.endsWith('/profile')) {
+      if (request.method === 'GET') {
+        const profile = await this.state.storage.get('crew-profile');
+        return profile ? Response.json(profile) : new Response('Crew not found', { status: 404 });
+      }
+      if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+      const profile = await request.json();
+      await this.state.storage.put('crew-profile', profile);
+      return Response.json(profile);
+    }
     if (url.pathname.endsWith('/history') || url.pathname.endsWith('/reserve')) {
       const stored = await this.state.storage.get<{ pairKeys: string[]; wordKeys: string[] }>('word-history')
         || { pairKeys: [], wordKeys: [] };

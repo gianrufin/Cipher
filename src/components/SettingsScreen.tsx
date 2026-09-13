@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Copy, RefreshCw, RotateCcw, Settings2, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Copy, RefreshCw, RotateCcw, Settings2, UserRoundSearch, Vibrate, Volume2, VolumeX } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { isSoundEnabled, setSoundEnabled } from '../utils/soundEffects';
 import { createCrewCode, getCrewProfile, getPlayedPairKeys, resetPlayedPairsHistory, saveCrewProfile } from '../utils/wordHistory';
@@ -8,15 +8,19 @@ import { CrewSyncState, syncCrewHistory } from '../utils/crewSync';
 interface SettingsScreenProps {
   onClose: () => void;
   onHowToPlay: () => void;
+  onRoleArchive: () => void;
+  onReplayOnboarding: () => void;
   onResetApp: () => void;
   onRestartMatch?: () => void;
 }
 
-export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowToPlay, onResetApp, onRestartMatch }) => {
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowToPlay, onRoleArchive, onReplayOnboarding, onResetApp, onRestartMatch }) => {
   const profile = getCrewProfile();
   const [crewName, setCrewName] = useState(profile.name);
   const [crewCode, setCrewCode] = useState(profile.code);
   const [sound, setSound] = useState(isSoundEnabled());
+  const [haptics,setHaptics]=useState(localStorage.getItem('cipher_haptics')!=='off');
+  const [timerSeconds,setTimerSeconds]=useState<5|10|20|30>((Number(localStorage.getItem('cipher_timer_seconds'))||20) as 5|10|20|30);
   const [theme, setTheme] = useState<'light' | 'dark'>(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
   const [syncState, setSyncState] = useState<CrewSyncState>('disabled');
   const [historyCount, setHistoryCount] = useState(getPlayedPairKeys().size);
@@ -61,7 +65,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowTo
           <button className="settings-row w-full" onClick={() => { const next = !sound; setSound(next); setSoundEnabled(next); }}>
             <span>Sound</span><span className="flex items-center gap-2 text-sm font-bold">{sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}{sound ? 'On' : 'Off'}</span>
           </button>
+          <button className="settings-row w-full" onClick={()=>{const next=!haptics;setHaptics(next);localStorage.setItem('cipher_haptics',next?'on':'off');}}><span>Vibration</span><span className="flex items-center gap-2 text-sm font-bold"><Vibrate className="h-4 w-4"/>{haptics?'On':'Off'}</span></button>
+          <div className="settings-row"><span>Clue timer</span><div className="cipher-segmented">{([5,10,20,30] as const).map(value=><button key={value} aria-pressed={timerSeconds===value} onClick={()=>{setTimerSeconds(value);localStorage.setItem('cipher_timer_seconds',String(value));}}>{value}s</button>)}</div></div>
           <button className="settings-row w-full" onClick={onHowToPlay}><span>How to play</span><BookOpen className="h-4 w-4" /></button>
+          <button className="settings-row w-full" onClick={onRoleArchive}><span>Role archive</span><UserRoundSearch className="h-4 w-4" /></button>
+          <button className="settings-row w-full" onClick={onReplayOnboarding}><span>Replay introduction</span><span>›</span></button>
           <div className="settings-row"><span>Install Cipher</span><PWAInstallButton variant="nav" /></div>
         </section>
 

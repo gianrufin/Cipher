@@ -6,14 +6,16 @@ import {
 } from 'lucide-react';
 import {
   EjectionReveal, EliminationsPerVote, GameMode, SpecialRoleConfig, VotingStyle, WordAudience,
-  WordCategory, WordDifficulty, WordPair
+  WordCategory, WordDifficulty, WordPair, GamePreset
 } from '../types';
 import { BUILT_IN_CATEGORIES } from '../data/wordPacks';
+import { DAILY_VAULT_CATEGORY } from '../data/dailyVault';
 import { selectCrewPair } from '../utils/crewSync';
-import { getWordPoolStatus } from '../utils/wordHistory';
+import { getDailyDeck, getDailyDeckLabel, getWordPoolStatus } from '../utils/wordHistory';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
 import { PlayerAvatar } from './PlayerAvatar';
 import { SelfieCaptureModal } from './SelfieCaptureModal';
+import { getRoleDefinition } from '../data/roleCatalog';
 
 interface SetupScreenProps {
   onStartGame: (config: {
@@ -89,6 +91,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [difficulty, setDifficulty] = useState<WordDifficulty>(initialConfig?.difficulty || 'easy');
   const [selectedCategoryId, setSelectedCategoryId] = useState(initialConfig?.selectedCategoryId || 'random');
   const [isLaunching, setIsLaunching] = useState(false);
+  const [gamePreset, setGamePreset] = useState<GamePreset>('classic');
 
   const isLargeLobby = playerNames.length >= 7;
   const maxImposters = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
@@ -110,7 +113,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   }, [decoyCount, eliminationsPerVote, impostersCount, isLargeLobby, maxDecoys, maxImposters, mode, playerNames.length, specialRoles.anarchist]);
 
   const categories = useMemo(() => {
-    const all: WordCategory[] = [...BUILT_IN_CATEGORIES];
+    const all: WordCategory[] = [...BUILT_IN_CATEGORIES, DAILY_VAULT_CATEGORY];
     if (customPairs.length) {
       all.push({
         id: 'custom_pack',
@@ -145,7 +148,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   }, [categories, selectedCategoryId]);
 
   const selectedDeckPairs = selectedCategoryId === 'random'
-    ? categories.flatMap(category => category.pairs)
+    ? getDailyDeck(categories.flatMap(category => category.pairs))
     : categories.find(category => category.id === selectedCategoryId)?.pairs || [];
   const selectedDeckStatus = getWordPoolStatus(selectedDeckPairs);
 
@@ -216,6 +219,19 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     triggerHaptic(20);
   };
 
+  const applyGamePreset = (preset: GamePreset) => {
+    setGamePreset(preset);
+    if (preset === 'classic') {
+      setImpostersCount(playerNames.length >= 9 ? 2 : 1); setDecoyCount(0); setSpecialRoles(EMPTY_ROLES);
+      setMode('decoy'); setVotingStyle('open'); setEjectionReveal('confirm'); setAllowSkip(true); setEliminationsPerVote(1); setUseModifiers(false);
+    } else if (preset === 'expanded') {
+      setMode('decoy'); setVotingStyle('blind'); setEjectionReveal('confirm'); setAllowSkip(true); setUseModifiers(false);
+      if (playerNames.length >= 7) applyBalancedRoles();
+      else { setImpostersCount(1); setDecoyCount(1); setSpecialRoles(EMPTY_ROLES); }
+    }
+    triggerHaptic(20);
+  };
+
   const canContinue = step !== 0 || playerNames.length >= 4;
   const speedEjections: EliminationsPerVote = playerNames.length >= 7 ? 2 : 1;
   const activeVotingPreset = votingStyle === 'open' && ejectionReveal === 'confirm' && allowSkip && eliminationsPerVote === 1
@@ -248,11 +264,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     const category = selectedCategoryId === 'random'
       ? {
           id: 'variety',
-          name: 'Variety Deck',
+          name: `Daily Deck · ${getDailyDeckLabel()}`,
           iconName: 'Sparkles',
           description: 'All eligible topics shuffled together.',
           audiences: [audience],
-          pairs: categories.flatMap(item => item.pairs)
+          pairs: getDailyDeck(categories.flatMap(item => item.pairs))
         } as WordCategory
       : categories.find(item => item.id === selectedCategoryId) || categories[0];
 
@@ -298,7 +314,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Gets a three-seat radar clue.' },
     { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'Protects another player once.' },
     { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the true Citizen word.' },
-    { key: 'anarchist' as const, name: 'Anarchist', team: 'Neutral', icon: Bomb, copy: 'Must rank first when voted out.' }
+    { key: 'anarchist' as const, name: 'Wild Card', team: 'Neutral', icon: Bomb, copy: 'Must rank first when voted out.' }
   ];
 
   return (
@@ -342,7 +358,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               {playerGuidance}
             </div>
 
-            <div className="mt-6 space-y-2">
+            <div className="setup-roster-grid mt-6">
               {playerNames.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-white/10 px-4 py-10 text-center">
                   <Users className="mx-auto h-6 w-6 text-stone-700" />
@@ -384,6 +400,14 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
             <div>
               <h1 className="font-display text-4xl font-black tracking-[-0.04em] text-stone-50">Set the tension.</h1>
               <p className="mt-3 text-sm leading-6 text-stone-500">Choose how much information and privacy the table gets.</p>
+            </div>
+            <div>
+              <p className="cipher-kicker mb-3">Game preset</p>
+              <div className="grid grid-cols-3 gap-2">
+                <PresetButton active={gamePreset === 'classic'} title="Classic" copy="Fast, familiar rules" onClick={() => applyGamePreset('classic')} />
+                <PresetButton active={gamePreset === 'expanded'} title="Expanded" copy="Balanced special roles" onClick={() => applyGamePreset('expanded')} />
+                <PresetButton active={gamePreset === 'custom'} title="Custom" copy="Tune every rule" onClick={() => setGamePreset('custom')} />
+              </div>
             </div>
             <div>
               <p className="cipher-kicker mb-3">Quick voting presets</p>
@@ -525,7 +549,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                       className={`rounded-xl border p-3 text-left disabled:cursor-not-allowed disabled:opacity-30 ${specialRoles[key] ? 'border-lime-300/35 bg-lime-300/[0.07]' : 'border-white/[0.07] bg-black/10'}`}
                     >
                       <div className="flex items-center justify-between">
-                        <Icon className="h-4 w-4 text-stone-300" />
+                        <img src={getRoleDefinition(key).image} alt="" className="h-12 w-12 border border-[var(--line)] bg-[var(--surface-inset)] object-contain" />
                         {specialRoles[key] && <Check className="h-3.5 w-3.5 text-lime-300" />}
                       </div>
                       <p className="mt-3 text-xs font-bold text-stone-100">{name}</p>
@@ -536,7 +560,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   })}
                   </div>
                   {eliminationsPerVote === 2 && playerNames.length < 9 && (
-                    <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-3 text-[10px] leading-4 text-amber-200">For 7–8 players, Double Elimination disables the Anarchist to prevent an overly volatile opening vote.</p>
+                    <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-3 text-[10px] leading-4 text-amber-200">For 7–8 players, Double Elimination disables the Wild Card to prevent an overly volatile opening vote.</p>
                   )}
                   {eliminationsPerVote === 2 && decoyCount === 2 && (
                     <p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/[0.06] p-3 text-[10px] leading-4 text-rose-200">High-chaos setup: two Decoy Citizens plus two eliminations can swing the match very quickly.</p>
@@ -593,8 +617,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                 <CategoryButton
                   active={selectedCategoryId === 'random'}
-                  title="Variety Deck"
-                  copy={`${getWordPoolStatus(categories.flatMap(category => category.pairs)).freshPairs} fresh pairs · recommended for long game nights`}
+                  title={`Daily Deck · ${getDailyDeckLabel()}`}
+                  copy={`${getWordPoolStatus(getDailyDeck(categories.flatMap(category => category.pairs))).freshPairs} fresh pairs · rotates daily in Philippine time`}
                   onClick={() => setSelectedCategoryId('random')}
                 />
                 {categories.map(category => (
@@ -695,7 +719,7 @@ const ChoiceGroup = ({
 }) => (
   <div>
     <p className="cipher-kicker mb-3">{label}</p>
-    <div className={`grid gap-2 ${columns === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+    <div className={`grid gap-2 ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
       {options.map(option => (
         <button key={option.id} type="button" onClick={() => onChange(option.id)} className={`rounded-2xl border p-4 text-left transition-all ${value === option.id ? 'border-[#ff6846] bg-[#ff6846]/10' : 'border-white/[0.08] bg-white/[0.025]'}`}>
           <div className="flex items-center justify-between gap-2">

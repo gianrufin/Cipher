@@ -6,6 +6,7 @@ const RECENT_WORDS_STORAGE_KEY = 'cipher_recent_words_history';
 const CREW_CODE_STORAGE_KEY = 'cipher_crew_code';
 const CREW_NAME_STORAGE_KEY = 'cipher_crew_name';
 const RECENT_WORD_LIMIT = 80;
+const FEEDBACK_STORAGE_KEY = 'cipher_word_feedback';
 
 const normalizeWord = (word: string) => word.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
 
@@ -24,6 +25,15 @@ export function getPairKey(pair: WordPair): string {
 
 export function getPairWords(pair: WordPair): string[] {
   return [normalizeWord(pair.wordA), normalizeWord(pair.wordB)].map(word => `word_${stableId(word)}`);
+}
+
+export function isPairBlocked(pair: WordPair): boolean {
+  try {
+    const feedback=JSON.parse(localStorage.getItem(FEEDBACK_STORAGE_KEY)||'{}') as Record<string,string>;
+    const legacy=[pair.wordA,pair.wordB].map(normalizeWord).sort().join('|');
+    const value=feedback[getPairKey(pair)]||feedback[legacy];
+    return value==='Seen before'||value==='Too similar'||value==='Too different';
+  } catch { return false; }
 }
 
 function safeList(key: string): string[] {
@@ -95,6 +105,22 @@ export function secureShuffle<T>(items: T[]): T[] {
   return shuffled;
 }
 
+export function getDailyDeck<T>(items: T[], size = items.length, date = new Date()): T[] {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  let seed = Number.parseInt(stableId(`cipher-daily-${day}`), 36) >>> 0;
+  const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 0x100000000; };
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [copy[index], copy[other]] = [copy[other], copy[index]];
+  }
+  return copy.slice(0, Math.min(size, copy.length));
+}
+
+export function getDailyDeckLabel(date = new Date()): string {
+  return new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' }).format(date);
+}
+
 export interface WordPoolStatus {
   total: number;
   freshPairs: number;
@@ -121,7 +147,7 @@ export function selectNoRepeatPair(category: WordCategory): WordPair {
 
   const played = getPlayedPairKeys();
   const recentWords = getRecentWordKeys();
-  const unplayed = category.pairs.filter(pair => !played.has(getPairKey(pair)));
+  const unplayed = category.pairs.filter(pair => !played.has(getPairKey(pair)) && !isPairBlocked(pair));
   if (!unplayed.length) {
     throw new Error(`Every pair in ${category.name} has been played. Choose a broader deck or reset its history in Settings.`);
   }

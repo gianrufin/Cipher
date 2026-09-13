@@ -1,12 +1,27 @@
-import { WordCategory, WordPair } from '../types';
+import { CrewProfile, WordCategory, WordPair } from '../types';
 import {
   getCrewProfile, getPairKey, getPairWords, getPlayedPairKeys, getRecentWordKeys,
-  mergePlayedHistory, recordPlayedPair, secureShuffle, selectNoRepeatPair
+  mergePlayedHistory, recordPlayedPair, secureShuffle, selectNoRepeatPair, isPairBlocked
 } from './wordHistory';
 
 const endpoint = String(import.meta.env.VITE_SIGNALING_URL || '').replace(/\/$/, '');
 
 export type CrewSyncState = 'disabled' | 'syncing' | 'synced' | 'offline' | 'error';
+
+export async function syncCrewDefinition(crew: CrewProfile): Promise<CrewSyncState> {
+  if (!endpoint || !crew.code) return 'disabled';
+  if (!navigator.onLine) return 'offline';
+  try {
+    const response = await fetch(`${endpoint}/crew/${encodeURIComponent(crew.code)}/profile`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(crew) });
+    return response.ok ? 'synced' : 'error';
+  } catch { return 'offline'; }
+}
+
+export async function loadCrewDefinition(code: string): Promise<CrewProfile | undefined> {
+  if (!endpoint || !code) return undefined;
+  try { const response=await fetch(`${endpoint}/crew/${encodeURIComponent(code.toUpperCase())}/profile`); return response.ok ? await response.json() as CrewProfile : undefined; }
+  catch { return undefined; }
+}
 
 export async function syncCrewHistory(): Promise<CrewSyncState> {
   const { code } = getCrewProfile();
@@ -39,7 +54,7 @@ export async function selectCrewPair(category: WordCategory): Promise<WordPair> 
   if (!code || !endpoint || !navigator.onLine) return selectNoRepeatPair(category);
   await syncCrewHistory();
   const played = getPlayedPairKeys();
-  const candidates = secureShuffle(category.pairs.filter(pair => !played.has(getPairKey(pair))));
+  const candidates = secureShuffle(category.pairs.filter(pair => !played.has(getPairKey(pair)) && !isPairBlocked(pair)));
   if (!candidates.length) return selectNoRepeatPair(category);
   try {
     const response = await fetch(`${endpoint}/crew/${encodeURIComponent(code)}/reserve`, {

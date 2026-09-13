@@ -24,6 +24,33 @@ export type EjectionReveal = 'confirm' | 'classified';
 export type GameConnectionMode = 'local' | 'online';
 export type WordDifficulty = 'easy' | 'standard' | 'tricky';
 export type WordAudience = 'family' | 'barkada' | 'mixed';
+export type GamePreset = 'classic' | 'expanded' | 'custom';
+
+export interface CrewMember {
+  id: string;
+  name: string;
+  active: boolean;
+  temporary?: boolean;
+}
+
+export interface CrewDefaults {
+  preset: GamePreset;
+  timerSeconds: 5 | 10 | 20 | 30;
+  preTimerEverySpeaker: boolean;
+  votingStyle: VotingStyle;
+  audience: WordAudience;
+  difficulty: WordDifficulty;
+}
+
+export interface CrewProfile {
+  id: string;
+  code: string;
+  name: string;
+  members: CrewMember[];
+  defaults: CrewDefaults;
+  lastPlayedAt?: string;
+  lastStarterId?: string;
+}
 
 export interface Player {
   id: string;
@@ -99,6 +126,7 @@ export interface MatchSummary {
 export type GamePhase =
   | 'onboarding'
   | 'mode_select'
+  | 'crew_select'
   | 'online_room'
   | 'setup'
   | 'pass_prompt'
