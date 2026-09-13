@@ -1,6 +1,6 @@
 // Web Audio API Procedural Sound Engine
 let audioCtx: AudioContext | null = null;
-let soundEnabled = true;
+let soundEnabled = typeof localStorage === 'undefined' ? true : localStorage.getItem('cipher_sound') !== 'off';
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -18,6 +18,7 @@ function getAudioContext(): AudioContext | null {
 
 export function setSoundEnabled(enabled: boolean) {
   soundEnabled = enabled;
+  try { localStorage.setItem('cipher_sound', enabled ? 'on' : 'off'); } catch { /* optional */ }
 }
 
 export function isSoundEnabled(): boolean {
@@ -26,6 +27,7 @@ export function isSoundEnabled(): boolean {
 
 export function triggerHaptic(pattern: number | number[] = 40) {
   try {
+    if (localStorage.getItem('cipher_haptics') === 'off') return;
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(pattern);
     }

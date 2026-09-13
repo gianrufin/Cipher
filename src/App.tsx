@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   GamePhase, Player, WordCategory, WordPair, GameMode, VotingStyle,
   RoundModifier, SessionStats, MatchSummary, SpecialRoleConfig, RoleType,
-  EjectionReveal, EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty
+  EjectionReveal, EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty, CrewProfile
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
 import { secureShuffle } from './utils/wordHistory';
@@ -23,6 +23,9 @@ import { RestartMatchModal } from './components/RestartMatchModal';
 import { GameModeScreen } from './components/GameModeScreen';
 import { OnlineRoomScreen } from './components/OnlineRoomScreen';
 import { SettingsScreen } from './components/SettingsScreen';
+import { CrewScreen } from './components/CrewScreen';
+import { RoleArchive } from './components/RoleArchive';
+import { getActiveCrew, markCrewPlayed, setActiveCrew } from './utils/crewStore';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -38,6 +41,8 @@ const INITIAL_SESSION_STATS: SessionStats = {
   totalImpostersCaught: 0,
   lastStandHeists: 0
 };
+const MATCH_SNAPSHOT_KEY = 'cipher_active_match_v1';
+type MatchSnapshot = { phase: GamePhase; players: Player[]; passIndex: number; gameMode: GameMode; accomplicesAware: boolean; categoryId: string; activePair: WordPair; trueCitizenWord: string; decoyWord: string; roundNumber: number; activeModifier: RoundModifier|null; votingStyle: VotingStyle; decoyCount: 0|1|2; eliminationsPerVote: EliminationsPerVote; ejectionReveal:EjectionReveal; allowSkip:boolean; specialRoles:SpecialRoleConfig; audience:WordAudience; difficulty:WordDifficulty };
 
 export default function App() {
   // Navigation & Modals
@@ -45,6 +50,8 @@ export default function App() {
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [isRestartOpen, setIsRestartOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isRoleArchiveOpen, setIsRoleArchiveOpen] = useState(false);
+  const [activeCrew, setActiveCrewState] = useState<CrewProfile | undefined>(() => getActiveCrew());
 
   // Persistence: custom pairs & saved player roster
   const [customPairs, setCustomPairs] = useState<WordPair[]>(() => {
@@ -123,10 +130,20 @@ export default function App() {
   const [eliminationQueueIndex, setEliminationQueueIndex] = useState(0);
   const [activeAudience, setActiveAudience] = useState<WordAudience>('family');
   const [activeDifficulty, setActiveDifficulty] = useState<WordDifficulty>('easy');
+  const [recovery, setRecovery] = useState<MatchSnapshot|undefined>(()=>{try{const raw=localStorage.getItem(MATCH_SNAPSHOT_KEY);return raw?JSON.parse(raw):undefined;}catch{return undefined;}});
 
   useEffect(() => {
     void syncCrewHistory();
   }, []);
+
+  useEffect(()=>{
+    const active=!['onboarding','mode_select','crew_select','online_room','setup','game_stats'].includes(phase);
+    if(!active||!players.length)return;
+    const snapshot:MatchSnapshot={phase,players:players.map(player=>({...player,avatarPhoto:undefined})),passIndex,gameMode,accomplicesAware,categoryId:activeCategory.id,activePair,trueCitizenWord,decoyWord,roundNumber,activeModifier,votingStyle,decoyCount,eliminationsPerVote,ejectionReveal,allowSkip,specialRoles,audience:activeAudience,difficulty:activeDifficulty};
+    try{localStorage.setItem(MATCH_SNAPSHOT_KEY,JSON.stringify(snapshot));setRecovery(snapshot);}catch{/* recovery remains optional */}
+  },[phase,players,passIndex,gameMode,accomplicesAware,activeCategory.id,activePair,trueCitizenWord,decoyWord,roundNumber,activeModifier,votingStyle,decoyCount,eliminationsPerVote,ejectionReveal,allowSkip,specialRoles,activeAudience,activeDifficulty]);
+
+  const restoreMatch=()=>{if(!recovery)return;setPlayers(recovery.players);setPassIndex(recovery.passIndex);setGameMode(recovery.gameMode);setAccomplicesAware(recovery.accomplicesAware);setActiveCategory(BUILT_IN_CATEGORIES.find(category=>category.id===recovery.categoryId)||{...BUILT_IN_CATEGORIES[0],id:recovery.categoryId,name:'Daily Deck'});setActivePair(recovery.activePair);setTrueCitizenWord(recovery.trueCitizenWord);setDecoyWord(recovery.decoyWord);setRoundNumber(recovery.roundNumber);setActiveModifier(recovery.activeModifier);setVotingStyle(recovery.votingStyle);setDecoyCount(recovery.decoyCount);setEliminationsPerVote(recovery.eliminationsPerVote);setEjectionReveal(recovery.ejectionReveal);setAllowSkip(recovery.allowSkip);setSpecialRoles(recovery.specialRoles);setActiveAudience(recovery.audience);setActiveDifficulty(recovery.difficulty);setPhase(recovery.phase);};
 
   // Save custom pairs to local storage
   const handleSaveCustomPairs = (updated: WordPair[]) => {
@@ -275,6 +292,7 @@ export default function App() {
     });
 
     setPlayers(generatedPlayers);
+    if (activeCrew) markCrewPlayed(activeCrew.id, generatedPlayers[0]?.id);
     setPassIndex(0);
     setPhase('pass_prompt');
   };
@@ -386,6 +404,8 @@ export default function App() {
 
   // Game over handler: records session metrics and transitions to Game Stats screen
   const handleGameOver = (summary: MatchSummary) => {
+    localStorage.removeItem(MATCH_SNAPSHOT_KEY);
+    setRecovery(undefined);
     const playerScores = calculateMatchScores(players, summary);
     const completedSummary = { ...summary, playerScores };
     setMatchSummary(completedSummary);
@@ -438,6 +458,13 @@ export default function App() {
         'cipher_recent_words_history',
         'cipher_crew_code',
         'cipher_crew_name',
+        'cipher_crews_v1',
+        'cipher_active_crew_id',
+        'cipher_active_match_v1',
+        'cipher_word_feedback',
+        'cipher_sound',
+        'cipher_haptics',
+        'cipher_timer_seconds',
         'cipher_has_completed_onboarding',
         'cipher_theme'
       ].forEach(key => localStorage.removeItem(key));
@@ -527,8 +554,9 @@ export default function App() {
           />
         )}
 
-        {phase === 'mode_select' && <GameModeScreen onLocal={() => setPhase('setup')} onOnline={() => setPhase('online_room')} />}
-        {phase === 'online_room' && <OnlineRoomScreen onBack={() => setPhase('mode_select')} />}
+        {phase === 'mode_select' && <><GameModeScreen onLocal={() => { setActiveCrew(undefined); setActiveCrewState(undefined); setSetupPlayers([]); setPhase('setup'); }} onOnline={() => { setActiveCrew(undefined); setActiveCrewState(undefined); setPhase('online_room'); }} onCrews={() => setPhase('crew_select')} />{recovery&&<div className="recovery-banner"><div><span className="cipher-kicker">Game in progress</span><strong>Round {recovery.roundNumber} · {recovery.phase.replaceAll('_',' ')}</strong></div><button onClick={restoreMatch} className="cipher-button-primary">Resume game</button><button onClick={()=>{localStorage.removeItem(MATCH_SNAPSHOT_KEY);setRecovery(undefined);}} className="cipher-text-button">Discard</button></div>}</>}
+        {phase === 'crew_select' && <CrewScreen onBack={() => setPhase('mode_select')} onLocal={crew => { setActiveCrewState(crew); setSetupPlayers(crew.members.filter(member => member.active).map(member => member.name)); setSetupPhotos([]); setPhase('setup'); }} onOnline={crew => { setActiveCrewState(crew); setPhase('online_room'); }} />}
+        {phase === 'online_room' && <OnlineRoomScreen initialCrew={activeCrew} onBack={() => setPhase(activeCrew ? 'crew_select' : 'mode_select')} />}
 
         {phase === 'setup' && (
           <SetupScreen
@@ -575,6 +603,8 @@ export default function App() {
             activeModifier={activeModifier}
             roundNumber={roundNumber}
             categoryName={activeCategory.name}
+            timerSeconds={activeCrew?.defaults.timerSeconds || (Number(localStorage.getItem('cipher_timer_seconds')) || 20) as 5|10|20|30}
+            preTimerEverySpeaker={activeCrew?.defaults.preTimerEverySpeaker ?? true}
             onProceedToVoting={handleProceedToVoting}
           />
         )}
@@ -642,6 +672,7 @@ export default function App() {
         isOpen={isRulesOpen}
         onClose={() => setIsRulesOpen(false)}
       />
+      {isRoleArchiveOpen && <RoleArchive onClose={() => setIsRoleArchiveOpen(false)} />}
 
       <CustomPackModal
         isOpen={isCustomModalOpen}
@@ -660,6 +691,8 @@ export default function App() {
         <SettingsScreen
           onClose={() => setIsSettingsOpen(false)}
           onHowToPlay={() => { setIsSettingsOpen(false); setIsRulesOpen(true); }}
+          onRoleArchive={() => { setIsSettingsOpen(false); setIsRoleArchiveOpen(true); }}
+          onReplayOnboarding={() => { setIsSettingsOpen(false); setPhase('onboarding'); }}
           onResetApp={handleResetAllData}
           onRestartMatch={!['mode_select', 'setup', 'game_stats', 'onboarding', 'online_room'].includes(phase) ? () => { setIsSettingsOpen(false); setIsRestartOpen(true); } : undefined}
         />

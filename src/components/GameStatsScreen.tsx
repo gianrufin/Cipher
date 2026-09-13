@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { MatchSummary, Player, PlayerCareerStats, SessionStats } from '../types';
 import { ShareResultModal } from './ShareResultModal';
+import { getRoleDefinition } from '../data/roleCatalog';
+import { getPairKey } from '../utils/wordHistory';
 
 interface GameStatsScreenProps {
   players: Player[];
@@ -21,7 +23,7 @@ interface GameStatsScreenProps {
 const winnerMeta = {
   citizens: { title: 'Citizens win', icon: Shield, tone: 'text-emerald-300', panel: 'border-emerald-400/25 bg-emerald-400/[0.06]' },
   imposters: { title: 'Imposters win', icon: Flame, tone: 'text-[#ff8065]', panel: 'border-[#ff6846]/25 bg-[#ff6846]/[0.06]' },
-  anarchist: { title: 'Anarchist wins', icon: Bomb, tone: 'text-amber-300', panel: 'border-amber-400/25 bg-amber-400/[0.06]' }
+  anarchist: { title: 'Wild Card wins', icon: Bomb, tone: 'text-amber-300', panel: 'border-amber-400/25 bg-amber-400/[0.06]' }
 };
 
 export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
@@ -77,6 +79,7 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
                 className={`w-full rounded-2xl border p-3.5 text-left ${index === 0 ? 'border-amber-300/25 bg-amber-300/[0.06]' : 'border-white/[0.07] bg-white/[0.02]'}`}
               >
                 <div className="flex items-center gap-3">
+                  <img src={getRoleDefinition(score.role).image} alt="" className="h-12 w-12 border-2 border-[var(--ink)] bg-[var(--surface-inset)] object-contain" />
                   <span className={`flex h-8 w-8 items-center justify-center rounded-full font-mono text-[10px] font-bold ${index === 0 ? 'bg-amber-300 text-stone-950' : 'bg-white/[0.06] text-stone-500'}`}>{index + 1}</span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-stone-100">{score.name}</p>
@@ -136,7 +139,7 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
               <button key={option} aria-pressed={wordFeedback === option} onClick={() => {
                 setWordFeedback(option);
                 try {
-                  const key = [trueCitizenWord, decoyWord].map(word => word.trim().toLowerCase()).sort().join('|');
+                  const key = getPairKey({wordA:trueCitizenWord,wordB:decoyWord});
                   const stored = JSON.parse(localStorage.getItem('cipher_word_feedback') || '{}');
                   localStorage.setItem('cipher_word_feedback', JSON.stringify({ ...stored, [key]: option }));
                 } catch { /* feedback remains selected for this screen */ }

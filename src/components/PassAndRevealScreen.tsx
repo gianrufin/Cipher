@@ -21,7 +21,7 @@ const ROLE_BRIEF: Record<RoleType, { label: string; team: string; mission: strin
   imposter: { label: 'Imposter', team: 'Imposter team', mission: 'Blend in, decode the real word, and survive the vote.', accent: 'coral' },
   inspector: { label: 'Inspector', team: 'Citizen team', mission: 'Use your private intel quietly without exposing yourself.', accent: 'cobalt' },
   sleeper: { label: 'Sleeper Agent', team: 'Imposter ally', mission: 'You know the Citizen word, but you win with the Imposters.', accent: 'violet' },
-  anarchist: { label: 'Anarchist', team: 'Neutral', mission: 'Convince the table to eject you first.', accent: 'yellow' },
+  anarchist: { label: 'Wild Card', team: 'Neutral', mission: 'Convince the table to eject you first.', accent: 'yellow' },
   bodyguard: { label: 'Bodyguard', team: 'Citizen team', mission: 'You may protect another Citizen once.', accent: 'lime' }
 };
 
@@ -121,7 +121,7 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
   };
 
   return (
-    <div className={`reveal-stage ${isRevealed ? `reveal-${briefing.accent}` : ''}`}>
+    <div className={`reveal-stage ${isRevealed ? 'reveal-neutral' : ''}`}>
       <div className="mx-auto flex min-h-[calc(100svh-72px)] w-full max-w-lg flex-col px-5 pb-7 pt-5">
         <header className="flex items-center justify-between text-xs font-bold">
           <span>{String(currentIndex + 1).padStart(2, '0')} / {String(players.length).padStart(2, '0')}</span>

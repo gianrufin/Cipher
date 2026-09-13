@@ -28,6 +28,7 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({ player
   const [skipVotes, setSkipVotes] = useState(0);
   const [secretStep, setSecretStep] = useState<'pass' | 'vote' | 'confirm' | 'results'>('pass');
   const [pendingSkip, setPendingSkip] = useState(false);
+  const [confirmOpenSkip,setConfirmOpenSkip]=useState(false);
   const [currentSecretSelection, setCurrentSecretSelection] = useState<string[]>([]);
   const [runoffCandidateIds, setRunoffCandidateIds] = useState<string[] | null>(null);
   const [lockedTargetIds, setLockedTargetIds] = useState<string[]>([]);
@@ -104,7 +105,8 @@ export const DiscussionAndVoting: React.FC<DiscussionAndVotingProps> = ({ player
       <p className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 text-xs text-slate-300">Select {selectionCount}. Selection order determines who is revealed first.</p>
       <PlayerChoices players={activePlayers} selectedIds={selectedTargetIds} onSelect={id => toggleSelection(id, selectedTargetIds, setSelectedTargetIds)} />
       {selectedTargetIds.length > 0 && <div className="rounded-2xl border border-rose-500/40 bg-[#160c10] p-5 text-center"><p className="font-mono text-[10px] font-bold uppercase tracking-widest text-rose-300">Ejection queue</p><h3 className="mt-2 font-display text-xl font-bold text-slate-100">{selectedTargetIds.map((id, index) => `${index + 1}. ${activePlayers.find(player => player.id === id)?.name}`).join('  ·  ')}</h3><button type="button" disabled={selectedTargetIds.length !== selectionCount} onClick={confirmOpenVote} className="cipher-button-primary mt-4 w-full disabled:opacity-30">Confirm {selectionCount === 2 ? 'both ejections' : 'ejection'}</button></div>}
-      {allowSkip && <button type="button" onClick={onSkipVote} className="cipher-button-ghost w-full"><FastForward className="h-4 w-4" /> Skip this vote</button>}
+      {allowSkip && !confirmOpenSkip && <button type="button" onClick={()=>setConfirmOpenSkip(true)} className="cipher-button-ghost w-full"><FastForward className="h-4 w-4" /> Skip this vote</button>}
+      {confirmOpenSkip&&<div className="vote-confirmation"><p className="cipher-eyebrow">Confirm skip</p><h3 className="mt-2 font-display text-2xl font-black">Move on without an ejection?</h3><div className="mt-5 grid grid-cols-2 gap-2"><button onClick={()=>setConfirmOpenSkip(false)} className="cipher-button-secondary">Cancel</button><button onClick={onSkipVote} className="cipher-button-primary">Confirm skip</button></div></div>}
     </div>}
 
     {votingMethod === 'secret' && <div className="space-y-4">

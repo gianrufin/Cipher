@@ -1,8 +1,8 @@
 import React from 'react';
-import { ArrowRight, Smartphone, Users } from 'lucide-react';
+import { ArrowRight, Smartphone, UserRoundCog, Users } from 'lucide-react';
 import { getCrewProfile, getPlayedPairKeys } from '../utils/wordHistory';
 
-export const GameModeScreen = ({ onLocal, onOnline }: { onLocal: () => void; onOnline: () => void }) => {
+export const GameModeScreen = ({ onLocal, onOnline, onCrews }: { onLocal: () => void; onOnline: () => void; onCrews: () => void }) => {
   const crew = getCrewProfile();
   const played = getPlayedPairKeys().size;
   return (
@@ -15,11 +15,14 @@ export const GameModeScreen = ({ onLocal, onOnline }: { onLocal: () => void; onO
       {crew.code && <div className="crew-ticket mt-7"><div><small>Playing as</small><strong>{crew.name || 'My crew'}</strong></div><div><small>Code</small><strong>{crew.code}</strong></div><div><small>History</small><strong>{played} pairs</strong></div></div>}
 
       <div className="mt-auto grid gap-3 pt-10">
+        <button type="button" onClick={onCrews} className="mode-button mode-button-primary">
+          <span className="mode-number">01</span><span><strong>Play with a Crew</strong><small>Load your regular table</small></span><UserRoundCog className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
+        </button>
         <button type="button" onClick={onLocal} className="mode-button mode-button-primary">
-          <span className="mode-number">01</span><span><strong>Pass & Play</strong><small>One phone around the table</small></span><Users className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
+          <span className="mode-number">02</span><span><strong>Quick Pass & Play</strong><small>One phone around the table</small></span><Users className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
         </button>
         <button type="button" onClick={onOnline} className="mode-button">
-          <span className="mode-number">02</span><span><strong>Live Room</strong><small>Every player joins privately</small></span><Smartphone className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
+          <span className="mode-number">03</span><span><strong>Quick Live Room</strong><small>Every player joins privately</small></span><Smartphone className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
         </button>
       </div>
     </div>
