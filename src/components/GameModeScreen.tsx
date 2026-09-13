@@ -13,7 +13,7 @@ export const GameModeScreen = ({ onLocal, onOnline, onCrews }: { onLocal: () => 
 
       {crew.code && <div className="crew-ticket mt-7"><div><small>Playing as</small><strong>{crew.name || 'My crew'}</strong></div><div><small>Code</small><strong>{crew.code}</strong></div><div><small>History</small><strong>{played} pairs</strong></div></div>}
 
-      <div className="mt-auto grid gap-3 pt-7">
+      <div className="mt-7 grid gap-3">
         <button type="button" onClick={() => { void enterFullscreen(); onCrews(); }} className="mode-button mode-button-primary">
           <span className="mode-number">01</span><span><strong>Play with a Crew</strong><small>Load your regular table</small></span><UserRoundCog className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
         </button>

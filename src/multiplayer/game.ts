@@ -80,7 +80,12 @@ export const createOnlineAssignments = (
   for (let count = 0; count < settings.decoys && cursor < ordered.length; count += 1) roles.set(ordered[cursor++].id, 'decoy');
 
   const imposterNames = profiles.filter(profile => roles.get(profile.id) === 'imposter').map(profile => profile.name);
-  const imposterSeats = profiles.map((profile, index) => roles.get(profile.id) === 'imposter' ? index + 1 : 0).filter(Boolean);
+  const inspectorProfile = profiles.find(profile => roles.get(profile.id) === 'inspector');
+  const sweepProfiles = inspectorProfile ? [
+    shuffled(profiles.filter(profile => roles.get(profile.id) === 'imposter'))[0],
+    ...shuffled(profiles.filter(profile => profile.id !== inspectorProfile.id && roles.get(profile.id) !== 'imposter')).slice(0, 2)
+  ].filter(Boolean) : [];
+  const sweepSeats = sweepProfiles.map(candidate => profiles.findIndex(profile => profile.id === candidate.id) + 1).sort((a, b) => a - b);
   const assignments = new Map<string, OnlineAssignment>();
   profiles.forEach(profile => {
     const role = roles.get(profile.id) || 'citizen';
@@ -90,7 +95,7 @@ export const createOnlineAssignments = (
       word,
       trueWord: role === 'imposter' ? citizenWord : undefined,
       teammates: role === 'imposter' ? imposterNames.filter(name => name !== profile.name) : [],
-      intel: role === 'inspector' ? `At least one Imposter is in seat ${imposterSeats.slice(0, 1).join(' or ')}.` : undefined
+      intel: role === 'inspector' ? `Signal Sweep: exactly one Imposter is among seats ${sweepSeats.map(seat => `#${seat}`).join(', ')}.` : undefined
     });
   });
 

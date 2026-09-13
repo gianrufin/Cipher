@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Copy, RefreshCw, RotateCcw, Settings2, UserRoundSearch, Vibrate, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Coffee, Copy, RefreshCw, RotateCcw, Settings2, UserRoundSearch, Vibrate, Volume2, VolumeX } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { isSoundEnabled, setSoundEnabled } from '../utils/soundEffects';
 import { createCrewCode, getCrewProfile, getPlayedPairKeys, resetPlayedPairsHistory, saveCrewProfile } from '../utils/wordHistory';
@@ -98,6 +98,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowTo
           <h2>Current game</h2>
           {onRestartMatch && <button className="settings-row w-full text-[var(--coral)]" onClick={onRestartMatch}><span>Restart match</span><RotateCcw className="h-4 w-4" /></button>}
           {confirmReset === 'app' ? <div className="confirm-strip mt-3"><span>Erase scores, roster and preferences?</span><button onClick={onResetApp}>Erase</button><button onClick={() => setConfirmReset(null)}>Cancel</button></div> : <button className="settings-row w-full" onClick={() => setConfirmReset('app')}><span>Reset app data</span><span>›</span></button>}
+        </section>
+
+        <section className="support-card">
+          <div><Coffee className="h-5 w-5" /><p className="cipher-eyebrow mt-3">Enjoying the game?</p><h2 className="mt-1">Buy me a coffee</h2><p className="mt-2 text-xs leading-5 text-[var(--muted)]">If Cipher earned a place at your table, you can help support future improvements. Totally optional.</p><small>Scan with your payment app</small></div>
+          <img src={`${import.meta.env.BASE_URL}support-qr.png`} alt="InstaPay QR code to support the developer" />
         </section>
       </div>
     </div>
