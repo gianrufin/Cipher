@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, HelpCircle, Pause, Play, RotateCcw, Shuffle, Vote } from 'lucide-react';
+import { ChevronRight, Pause, Play, RotateCcw, Shuffle, Vote } from 'lucide-react';
 import { Player, RoundModifier } from '../types';
-import { INTERROGATION_QUESTIONS } from '../data/wordPacks';
 import { playCountdown, playTick, playWhoosh, triggerHaptic } from '../utils/soundEffects';
 import { secureShuffle } from '../utils/wordHistory';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -15,8 +14,6 @@ const fairOrder = (players: Player[], round: number) => {
   const offset = (round - 1) % active.length;
   return [...active.slice(offset), ...active.slice(0, offset)];
 };
-const drawSessionPrompt=()=>{try{const key='cipher_used_prompts';const used=JSON.parse(sessionStorage.getItem(key)||'[]') as string[];const available=INTERROGATION_QUESTIONS.filter(item=>!used.includes(item));const pool=available.length?available:INTERROGATION_QUESTIONS;const picked=secureShuffle(pool)[0];sessionStorage.setItem(key,JSON.stringify(available.length?[...used,picked]:[picked]));return picked;}catch{return secureShuffle(INTERROGATION_QUESTIONS)[0];}};
-
 export const ClueRoundView: React.FC<Props> = ({ players, activeModifier, roundNumber, categoryName, onProceedToVoting, timerSeconds=20, preTimerEverySpeaker=true }) => {
   const [orderedPlayers,setOrderedPlayers]=useState(()=>fairOrder(players,roundNumber));
   const [speakerIndex,setSpeakerIndex]=useState(0);
@@ -26,8 +23,6 @@ export const ClueRoundView: React.FC<Props> = ({ players, activeModifier, roundN
   const [preCount,setPreCount]=useState(3);
   const [timerPhase,setTimerPhase]=useState<TimerPhase>('ready');
   const [resumePhase,setResumePhase]=useState<'pre'|'running'>('running');
-  const [prompt,setPrompt]=useState<string>();
-  const [promptOpen,setPromptOpen]=useState(false);
   const currentSpeaker=orderedPlayers[speakerIndex];
   const allSpoken=completedIds.length>=orderedPlayers.length;
 
@@ -63,9 +58,8 @@ export const ClueRoundView: React.FC<Props> = ({ players, activeModifier, roundN
         {(timerPhase==='running'||timerPhase==='paused'||timerPhase==='timeup')&&<><p className="cipher-eyebrow">{timerPhase==='paused'?'Paused':timerPhase==='timeup'?'Time':'Clue timer'}</p><strong>{timerPhase==='timeup'?'TIME':String(timeLeft).padStart(2,'0')}</strong><div className="timer-progress" style={{'--timer-progress':`${Math.max(0,timeLeft/totalSeconds)*100}%`} as React.CSSProperties}/><div className="mt-4 flex justify-center gap-2"><button onClick={togglePause} className="cipher-button-secondary px-4">{timerPhase==='paused'?<Play className="h-4 w-4"/>:<Pause className="h-4 w-4"/>}{timerPhase==='paused'?'Resume':'Pause'}</button><button onClick={begin} className="cipher-icon-button" aria-label="Restart countdown"><RotateCcw className="h-4 w-4"/></button></div></>}
       </div>
       <button onClick={next} disabled={allSpoken} className="cipher-button-primary mt-4 w-full disabled:opacity-30">{speakerIndex===orderedPlayers.length-1?'Finish clue round':'Clue given · next speaker'}<ChevronRight className="h-4 w-4"/></button>
-      <button onClick={()=>{setPrompt(drawSessionPrompt());setPromptOpen(true);}} className="cipher-text-button mx-auto mt-3"><HelpCircle className="h-4 w-4"/>Draw cross-examination prompt</button><div className="turn-progress mt-auto"><span style={{width:`${progress*100}%`}}/></div>
+      <div className="mt-auto pt-5"><p className="cipher-eyebrow mb-2">Speaking order</p><div className="turn-rail" aria-label="Speaking order">{orderedPlayers.map((player,index)=><div key={player.id} className={`${index===speakerIndex?'active':''} ${completedIds.includes(player.id)?'done':''}`}><span>{String(index+1).padStart(2,'0')}</span>{player.name}</div>)}</div><div className="turn-progress mt-2"><span style={{width:`${progress*100}%`}}/></div></div>
     </section>
     {allSpoken&&<div className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--ink)] bg-[var(--canvas)] p-3"><button className="cipher-button-primary mx-auto flex w-full max-w-lg" onClick={onProceedToVoting}><Vote className="h-4 w-4"/>Open voting</button></div>}
-    {promptOpen&&<div className="fixed inset-0 z-50 flex items-end bg-black/45" onClick={()=>setPromptOpen(false)}><div className="prompt-sheet mx-auto w-full max-w-lg" onClick={event=>event.stopPropagation()}><p className="cipher-eyebrow">Cross-examination</p><h3 className="mt-3 font-display text-2xl font-black">{prompt}</h3><button onClick={()=>setPromptOpen(false)} className="cipher-button-primary mt-6 w-full">Use this prompt</button></div></div>}
   </div>;
 };

@@ -1,23 +1,100 @@
-import React,{useEffect,useRef,useState}from'react';
-import{Check,Download,Share2,X}from'lucide-react';
-import{MatchSummary,Player,PlayerCareerStats}from'../types';
-type Layout='victory'|'leaderboard';type Background='cipher'|'transparent';type Size='story'|'feed'|'square';
-interface Props{isOpen:boolean;onClose:()=>void;players:Player[];matchSummary:MatchSummary;careerStats:Record<string,PlayerCareerStats>;trueCitizenWord:string;decoyWord:string;categoryName:string}
-const WINNER={citizens:'Citizens win',imposters:'Imposters win',anarchist:'Wild Card wins'};
-export const ShareResultModal:React.FC<Props>=({isOpen,onClose,players,matchSummary,trueCitizenWord,decoyWord,categoryName})=>{
- const canvasRef=useRef<HTMLCanvasElement>(null);const[layout,setLayout]=useState<Layout>('victory');const[background,setBackground]=useState<Background>('cipher');const[size,setSize]=useState<Size>('story');const[showNames,setShowNames]=useState(true);const[showRoles,setShowRoles]=useState(false);const[showWords,setShowWords]=useState(true);const[sharing,setSharing]=useState(false);
- useEffect(()=>{if(!isOpen)return;const draw=async()=>{await document.fonts?.ready;const canvas=canvasRef.current;if(!canvas)return;canvas.width=1080;canvas.height=size==='story'?1920:size==='feed'?1350:1080;const ctx=canvas.getContext('2d');if(ctx)drawCard(ctx,canvas.width,canvas.height,{layout,background,players,matchSummary,trueCitizenWord,decoyWord,categoryName,showNames,showRoles,showWords});};void draw();},[isOpen,layout,background,size,players,matchSummary,trueCitizenWord,decoyWord,categoryName,showNames,showRoles,showWords]);
- if(!isOpen)return null;
- const makeFile=()=>new Promise<File|null>(resolve=>canvasRef.current?.toBlob(blob=>resolve(blob?new File([blob],`cipher-${layout}-${background}-${Date.now()}.png`,{type:'image/png'}):null),'image/png'));
- const download=async()=>{const file=await makeFile();if(!file)return;const url=URL.createObjectURL(file);const anchor=document.createElement('a');anchor.href=url;anchor.download=file.name;anchor.click();URL.revokeObjectURL(url);};
- const share=async()=>{setSharing(true);try{const file=await makeFile();if(!file)return;if(navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({title:'Cipher match result',text:WINNER[matchSummary.winner],files:[file]});else await download();}catch(error){if((error as Error).name!=='AbortError')await download();}finally{setSharing(false);}};
- return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/65 sm:items-center sm:p-4"><div className="share-studio flex max-h-[96dvh] w-full max-w-3xl flex-col overflow-hidden"><header className="flex items-center justify-between border-b-2 border-[var(--ink)] p-4"><div><p className="cipher-kicker">Match studio</p><h2 className="mt-1 font-display text-xl font-black">Share the result</h2></div><button onClick={onClose} className="cipher-icon-button" aria-label="Close"><X className="h-4 w-4"/></button></header><div className="grid flex-1 overflow-y-auto lg:grid-cols-[1.05fr_.95fr]"><div className={`share-preview ${background==='transparent'?'transparent':''}`}><canvas ref={canvasRef} className="max-h-[50dvh] w-auto max-w-full"/></div><div className="space-y-4 p-4 sm:p-6"><Tabs label="Layout" value={layout} onChange={value=>setLayout(value as Layout)} options={[["victory","Victory"],["leaderboard","Leaderboard"]]}/><Tabs label="Background" value={background} onChange={value=>setBackground(value as Background)} options={[["cipher","Cipher"],["transparent","Transparent"]]}/><Tabs label="Format" value={size} onChange={value=>setSize(value as Size)} options={[["story","Story"],["feed","Feed"],["square","Square"]]}/><div className="space-y-2"><p className="cipher-kicker">Privacy and detail</p><Toggle label="Player names" checked={showNames} onChange={setShowNames}/><Toggle label="Assigned roles" checked={showRoles} onChange={setShowRoles}/><Toggle label="Secret words" checked={showWords} onChange={setShowWords}/></div>{background==='transparent'&&<p className="text-xs leading-5 text-[var(--muted)]">Transparent PNG with flat type and no shadow, ready for a group photo.</p>}<div className="grid grid-cols-2 gap-2"><button onClick={download} className="cipher-button-secondary"><Download className="h-4 w-4"/>Download</button><button disabled={sharing} onClick={()=>void share()} className="cipher-button-primary"><Share2 className="h-4 w-4"/>{sharing?'Preparing':'Share'}</button></div></div></div></div></div>;
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Check, Download, Share2, X } from 'lucide-react';
+import { MatchSummary, Player, PlayerCareerStats } from '../types';
+
+type Layout = 'victory' | 'leaderboard';
+type Background = 'cipher' | 'transparent';
+type Size = 'story' | 'feed' | 'square';
+
+interface Props {
+  isOpen: boolean; onClose: () => void; players: Player[]; matchSummary: MatchSummary;
+  careerStats: Record<string, PlayerCareerStats>; trueCitizenWord: string; decoyWord: string; categoryName: string;
+}
+
+const WINNER = { citizens: 'Citizens win', imposters: 'Imposters win', anarchist: 'Wild Card wins' };
+const ROLE_LABEL: Record<string, string> = { anarchist: 'Wild Card', citizen: 'Citizen', imposter: 'Imposter', decoy: 'Decoy', inspector: 'Inspector', sleeper: 'Sleeper', bodyguard: 'Bodyguard' };
+
+export const ShareResultModal: React.FC<Props> = ({ isOpen, onClose, players, matchSummary, trueCitizenWord, decoyWord, categoryName }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [layout, setLayout] = useState<Layout>('victory');
+  const [background, setBackground] = useState<Background>('cipher');
+  const [size, setSize] = useState<Size>('feed');
+  const [showNames, setShowNames] = useState(true);
+  const [showRoles, setShowRoles] = useState(false);
+  const [showWords, setShowWords] = useState(true);
+  const [sharing, setSharing] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const draw = async () => {
+      await document.fonts?.ready;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      canvas.width = 1080;
+      canvas.height = size === 'story' ? 1920 : size === 'feed' ? 1350 : 1080;
+      const context = canvas.getContext('2d');
+      if (context) drawCard(context, canvas.width, canvas.height, { layout, background, players, matchSummary, trueCitizenWord, decoyWord, categoryName, showNames, showRoles, showWords });
+    };
+    void draw();
+  }, [isOpen, layout, background, size, players, matchSummary, trueCitizenWord, decoyWord, categoryName, showNames, showRoles, showWords]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+  const makeFile = () => new Promise<File | null>(resolve => canvasRef.current?.toBlob(blob => resolve(blob ? new File([blob], `cipher-${layout}-${background}-${Date.now()}.png`, { type: 'image/png' }) : null), 'image/png'));
+  const download = async () => { const file = await makeFile(); if (!file) return; const url = URL.createObjectURL(file); const anchor = document.createElement('a'); anchor.href = url; anchor.download = file.name; anchor.click(); URL.revokeObjectURL(url); };
+  const share = async () => { setSharing(true); try { const file = await makeFile(); if (!file) return; if (navigator.share && navigator.canShare?.({ files: [file] })) await navigator.share({ title: 'Cipher match result', text: WINNER[matchSummary.winner], files: [file] }); else await download(); } catch (error) { if ((error as Error).name !== 'AbortError') await download(); } finally { setSharing(false); } };
+
+  return createPortal(<div className="share-overlay" role="dialog" aria-modal="true" aria-label="Share match result"><div className="share-studio">
+    <header className="share-studio-header"><div><p className="cipher-kicker">Match result</p><h2>Share your game</h2></div><button onClick={onClose} className="share-close" aria-label="Close share screen"><X className="h-5 w-5" /></button></header>
+    <div className="share-studio-body"><div className={`share-preview ${background === 'transparent' ? 'transparent' : ''}`}><canvas ref={canvasRef} /></div><div className="share-controls">
+      <div className="share-control-grid"><Tabs label="Card" value={layout} onChange={value => setLayout(value as Layout)} options={[["victory", "Summary"], ["leaderboard", "Leaderboard"]]} /><Tabs label="Format" value={size} onChange={value => setSize(value as Size)} options={[["feed", "Feed"], ["story", "Story"], ["square", "Square"]]} /></div>
+      <Tabs label="Background" value={background} onChange={value => setBackground(value as Background)} options={[["cipher", "Cipher"], ["transparent", "Transparent"]]} />
+      <div><p className="cipher-kicker mb-2">Include</p><div className="share-options"><Toggle label="Names" checked={showNames} onChange={setShowNames} /><Toggle label="Roles" checked={showRoles} onChange={setShowRoles} /><Toggle label="Words" checked={showWords} onChange={setShowWords} /></div></div>
+    </div></div>
+    <footer className="share-actions"><button onClick={download} className="cipher-button-secondary"><Download className="h-4 w-4" />Save</button><button disabled={sharing} onClick={() => void share()} className="cipher-button-primary"><Share2 className="h-4 w-4" />{sharing ? 'Preparing' : 'Share'}</button></footer>
+  </div></div>, document.body);
 };
-const Tabs=({label,value,onChange,options}:{label:string;value:string;onChange:(v:string)=>void;options:string[][]})=><div><p className="cipher-kicker mb-2">{label}</p><div className="cipher-segmented">{options.map(([id,title])=><button key={id} aria-pressed={value===id} onClick={()=>onChange(id)}>{title}</button>)}</div></div>;
-const Toggle=({label,checked,onChange}:{label:string;checked:boolean;onChange:(v:boolean)=>void})=><button onClick={()=>onChange(!checked)} className="settings-row w-full"><span>{label}</span><span className={`check-dot ${checked?'active':''}`}>{checked&&<Check className="h-3 w-3"/>}</span></button>;
-interface Draw{layout:Layout;background:Background;players:Player[];matchSummary:MatchSummary;trueCitizenWord:string;decoyWord:string;categoryName:string;showNames:boolean;showRoles:boolean;showWords:boolean}
-function drawMark(ctx:CanvasRenderingContext2D,x:number,y:number,size:number,ink:string){ctx.fillStyle='#f25f4b';ctx.strokeStyle=ink;ctx.lineWidth=size*.055;ctx.beginPath();ctx.arc(x,y,size*.46,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.beginPath();ctx.arc(x,y,size*.27,0,Math.PI*2);ctx.stroke();ctx.fillStyle=ink;ctx.beginPath();ctx.arc(x,y,size*.08,0,Math.PI*2);ctx.fill();}
-function drawCard(ctx:CanvasRenderingContext2D,w:number,h:number,o:Draw){ctx.clearRect(0,0,w,h);const transparent=o.background==='transparent';const ink=transparent?'#ffffff':'#152238';const muted=transparent?'rgba(255,255,255,.84)':'#657083';const accent='#f25f4b';if(!transparent){ctx.fillStyle='#f4eedc';ctx.fillRect(0,0,w,h);ctx.fillStyle='#3568e8';ctx.beginPath();ctx.arc(w*.92,h*.16,w*.25,0,Math.PI*2);ctx.fill();ctx.fillStyle='#c7dc48';ctx.fillRect(0,h*.84,w,h*.16);}ctx.textBaseline='top';ctx.shadowColor='transparent';ctx.shadowBlur=0;drawMark(ctx,105,105,74,ink);ctx.fillStyle=ink;ctx.font='900 34px Bricolage Grotesque';ctx.fillText('CIPHER',164,82);ctx.font='800 21px JetBrains Mono';ctx.fillStyle=muted;ctx.fillText('MATCH DEBRIEF',164,126);ctx.fillStyle=ink;ctx.font='900 96px Bricolage Grotesque';wrap(ctx,WINNER[o.matchSummary.winner].toUpperCase(),72,220,w-144,92);const scores=o.matchSummary.playerScores||[];const safe=(name:string)=>o.showNames?name:name.split(/\s+/).map(v=>v[0]).join('').toUpperCase();if(o.layout==='victory'){const mvp=scores[0];const y=h*.5;flatPanel(ctx,60,y,w-120,260,transparent,ink);ctx.fillStyle=muted;ctx.font='800 22px JetBrains Mono';ctx.fillText('MATCH MVP',92,y+42);ctx.fillStyle=ink;ctx.font='900 64px Bricolage Grotesque';ctx.fillText(mvp?safe(mvp.name):'THE TABLE',92,y+86);ctx.fillStyle=accent;ctx.font='900 30px Bricolage Grotesque';if(mvp)ctx.fillText(`${mvp.points} MATCH POINTS`,92,y+176);stats(ctx,72,y+320,w-144,o,ink,muted);}else{let y=385;scores.slice(0,6).forEach((score,index)=>{flatPanel(ctx,60,y,w-120,108,transparent,ink);ctx.fillStyle=index===0?accent:muted;ctx.font='800 24px JetBrains Mono';ctx.fillText(String(index+1).padStart(2,'0'),88,y+39);ctx.fillStyle=ink;ctx.font='900 36px Bricolage Grotesque';ctx.fillText(safe(score.name),150,y+23);if(o.showRoles){ctx.fillStyle=muted;ctx.font='700 17px JetBrains Mono';ctx.fillText(score.role.toUpperCase(),150,y+68);}ctx.textAlign='right';ctx.fillStyle=ink;ctx.font='900 36px Bricolage Grotesque';ctx.fillText(`${score.points} PTS`,w-88,y+34);ctx.textAlign='left';y+=124;});stats(ctx,72,h-230,w-144,o,ink,muted);}if(o.showWords){ctx.fillStyle=muted;ctx.font='800 20px JetBrains Mono';ctx.fillText('THE WORDS',72,h-150);ctx.fillStyle=ink;ctx.font='900 38px Bricolage Grotesque';ctx.fillText(`${o.trueCitizenWord} / ${o.decoyWord||o.categoryName}`,72,h-105);}}
-function flatPanel(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,h:number,transparent:boolean,ink:string){ctx.strokeStyle=ink;ctx.lineWidth=transparent?7:4;if(!transparent){ctx.fillStyle='#fffdf6';ctx.fillRect(x,y,w,h);}ctx.strokeRect(x,y,w,h);}
-function stats(ctx:CanvasRenderingContext2D,x:number,y:number,w:number,o:Draw,ink:string,muted:string){const items=[[o.players.length,'PLAYERS'],[o.matchSummary.roundsPlayed,'ROUNDS'],[`${o.matchSummary.impostersCaughtThisMatch}/${o.matchSummary.totalImposters}`,'CAUGHT']];items.forEach(([value,label],i)=>{ctx.fillStyle=ink;ctx.font='900 50px Bricolage Grotesque';ctx.fillText(String(value),x+i*w/3,y);ctx.fillStyle=muted;ctx.font='800 18px JetBrains Mono';ctx.fillText(String(label),x+i*w/3,y+60);});}
-function wrap(ctx:CanvasRenderingContext2D,text:string,x:number,y:number,max:number,line:number){let current='';let top=y;text.split(' ').forEach(word=>{const test=current?`${current} ${word}`:word;if(ctx.measureText(test).width>max&&current){ctx.fillText(current,x,top);current=word;top+=line;}else current=test;});ctx.fillText(current,x,top);}
+
+const Tabs = ({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[][] }) => <div><p className="cipher-kicker mb-2">{label}</p><div className="cipher-segmented">{options.map(([id, title]) => <button key={id} aria-pressed={value === id} onClick={() => onChange(id)}>{title}</button>)}</div></div>;
+const Toggle = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) => <button onClick={() => onChange(!checked)} className="share-option" aria-pressed={checked}><span className={`check-dot ${checked ? 'active' : ''}`}>{checked && <Check className="h-3 w-3" />}</span>{label}</button>;
+
+interface DrawOptions { layout: Layout; background: Background; players: Player[]; matchSummary: MatchSummary; trueCitizenWord: string; decoyWord: string; categoryName: string; showNames: boolean; showRoles: boolean; showWords: boolean; }
+
+function drawMark(context: CanvasRenderingContext2D, x: number, y: number, size: number, ink: string) {
+  context.fillStyle = '#f25f4b'; context.strokeStyle = ink; context.lineWidth = size * .055;
+  context.beginPath(); context.arc(x, y, size * .46, 0, Math.PI * 2); context.fill(); context.stroke();
+  context.beginPath(); context.arc(x, y, size * .27, 0, Math.PI * 2); context.stroke();
+  context.fillStyle = ink; context.beginPath(); context.arc(x, y, size * .08, 0, Math.PI * 2); context.fill();
+}
+
+function drawCard(context: CanvasRenderingContext2D, width: number, height: number, options: DrawOptions) {
+  context.clearRect(0, 0, width, height);
+  const transparent = options.background === 'transparent'; const ink = transparent ? '#ffffff' : '#152238'; const muted = transparent ? 'rgba(255,255,255,.72)' : '#657083'; const coral = '#f25f4b';
+  const scores = options.matchSummary.playerScores || []; const safeName = (name: string) => options.showNames ? name : name.split(/\s+/).map(part => part[0]).join('').toUpperCase();
+  if (!transparent) { context.fillStyle = '#f4eedc'; context.fillRect(0, 0, width, height); }
+  context.shadowColor = 'transparent'; context.shadowBlur = 0; context.textBaseline = 'top'; context.fillStyle = coral; context.fillRect(0, 0, width, 22);
+  drawMark(context, 92, 104, 58, ink); context.fillStyle = ink; context.font = '900 30px Bricolage Grotesque'; context.fillText('CIPHER', 140, 76); context.fillStyle = muted; context.font = '800 18px JetBrains Mono'; context.fillText('GAME NIGHT', 140, 116);
+  context.fillStyle = ink; context.font = '900 92px Bricolage Grotesque'; wrap(context, WINNER[options.matchSummary.winner].toUpperCase(), 64, 230, width - 128, 88); context.fillStyle = muted; context.font = '800 18px JetBrains Mono'; context.fillText('MATCH COMPLETE', 68, 420);
+  const statsTop = 476; context.strokeStyle = ink; context.lineWidth = 3; line(context, 64, statsTop, width - 64, statsTop);
+  const stats: Array<[string | number, string]> = [[options.players.length, 'PLAYERS'], [options.matchSummary.roundsPlayed, 'ROUNDS'], [`${options.matchSummary.impostersCaughtThisMatch}/${options.matchSummary.totalImposters}`, 'CAUGHT']];
+  stats.forEach(([value, label], index) => { const x = 68 + index * ((width - 136) / 3); context.fillStyle = ink; context.font = '900 54px Bricolage Grotesque'; context.fillText(String(value), x, statsTop + 34); context.fillStyle = muted; context.font = '800 16px JetBrains Mono'; context.fillText(label, x, statsTop + 98); }); line(context, 64, statsTop + 142, width - 64, statsTop + 142);
+  if (options.layout === 'victory') {
+    const mvp = scores[0]; context.fillStyle = coral; context.font = '800 17px JetBrains Mono'; context.fillText('TOP PLAYER', 68, statsTop + 205); context.fillStyle = ink; context.font = '900 70px Bricolage Grotesque'; context.fillText(mvp ? safeName(mvp.name) : 'THE TABLE', 68, statsTop + 244);
+    if (mvp) { context.fillStyle = muted; context.font = '800 25px JetBrains Mono'; context.fillText(`${mvp.points} POINTS`, 70, statsTop + 330); } scores.slice(1, 4).forEach((score, index) => drawRank(context, 68, statsTop + 410 + index * 78, width - 136, index + 2, safeName(score.name), score.points, ink, muted, false));
+  } else scores.slice(0, 6).forEach((score, index) => drawRank(context, 68, statsTop + 192 + index * 94, width - 136, index + 1, safeName(score.name), score.points, ink, muted, options.showRoles, ROLE_LABEL[score.role] || score.role));
+  const footerTop = height - 176; context.strokeStyle = ink; context.lineWidth = 3; line(context, 64, footerTop, width - 64, footerTop); context.fillStyle = muted; context.font = '800 16px JetBrains Mono'; context.fillText(options.showWords ? 'THE WORDS' : 'CATEGORY', 68, footerTop + 30); context.fillStyle = ink; context.font = '900 34px Bricolage Grotesque'; context.fillText(options.showWords ? `${options.trueCitizenWord} / ${options.decoyWord || options.categoryName}` : options.categoryName, 68, footerTop + 66);
+}
+
+function drawRank(context: CanvasRenderingContext2D, x: number, y: number, width: number, rank: number, name: string, points: number, ink: string, muted: string, showRole: boolean, role = '') {
+  context.strokeStyle = 'rgba(101,112,131,.35)'; context.lineWidth = 2; line(context, x, y + 68, x + width, y + 68); context.fillStyle = muted; context.font = '800 17px JetBrains Mono'; context.fillText(String(rank).padStart(2, '0'), x, y + 17); context.fillStyle = ink; context.font = '900 32px Bricolage Grotesque'; context.fillText(name, x + 62, y + 6);
+  if (showRole) { context.fillStyle = muted; context.font = '700 14px JetBrains Mono'; context.fillText(role.toUpperCase(), x + 62, y + 42); } context.textAlign = 'right'; context.fillStyle = ink; context.font = '900 28px Bricolage Grotesque'; context.fillText(`${points} PTS`, x + width, y + 14); context.textAlign = 'left';
+}
+function line(context: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) { context.beginPath(); context.moveTo(x1, y1); context.lineTo(x2, y2); context.stroke(); }
+function wrap(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) { let current = ''; let top = y; text.split(' ').forEach(word => { const test = current ? `${current} ${word}` : word; if (context.measureText(test).width > maxWidth && current) { context.fillText(current, x, top); current = word; top += lineHeight; } else current = test; }); context.fillText(current, x, top); }
