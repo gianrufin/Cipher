@@ -136,6 +136,10 @@ export default function App() {
     void syncCrewHistory();
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [phase]);
+
   useEffect(()=>{
     const active=!['onboarding','mode_select','crew_select','online_room','setup','game_stats'].includes(phase);
     if(!active||!players.length)return;
@@ -255,15 +259,11 @@ export default function App() {
     const inspectorIndex = [...specialRoleByIndex.entries()].find(([, role]) => role === 'inspector')?.[0];
     let inspectorIntel: string | undefined;
     if (inspectorIndex !== undefined) {
-      const candidatePool = indices.filter(index => index !== inspectorIndex);
-      const guaranteedImposter = indices.find(index => imposterIndices.has(index))!;
-      const radarIndices = [guaranteedImposter];
-      for (const index of candidatePool) {
-        if (radarIndices.length >= Math.min(3, candidatePool.length)) break;
-        if (!radarIndices.includes(index)) radarIndices.push(index);
-      }
+      const guaranteedImposter = secureShuffle(indices.filter(index => imposterIndices.has(index)))[0];
+      const citizenCover = secureShuffle(indices.filter(index => index !== inspectorIndex && !imposterIndices.has(index))).slice(0, 2);
+      const radarIndices = [guaranteedImposter, ...citizenCover];
       radarIndices.sort((a, b) => a - b);
-      inspectorIntel = `At least one Imposter is among seats ${radarIndices.map(index => `#${index + 1}`).join(', ')}.`;
+      inspectorIntel = `Signal Sweep: exactly one Imposter is among seats ${radarIndices.map(index => `#${index + 1}`).join(', ')}.`;
     }
 
     // Construct Player list

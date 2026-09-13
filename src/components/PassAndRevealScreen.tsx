@@ -19,7 +19,7 @@ const ROLE_BRIEF: Record<RoleType, { label: string; team: string; mission: strin
   citizen: { label: 'Citizen', team: 'Citizen team', mission: 'Give a useful clue and expose every Imposter.', accent: 'blue' },
   decoy: { label: 'Citizen', team: 'Citizen team', mission: 'Your word is different. Read the table carefully and help the Citizens.', accent: 'blue' },
   imposter: { label: 'Imposter', team: 'Imposter team', mission: 'Blend in, decode the real word, and survive the vote.', accent: 'coral' },
-  inspector: { label: 'Inspector', team: 'Citizen team', mission: 'Use your private intel quietly without exposing yourself.', accent: 'cobalt' },
+  inspector: { label: 'Inspector', team: 'Citizen team', mission: 'Exactly one player in your Signal Sweep is an Imposter. Read their clues and steer the table without exposing yourself.', accent: 'cobalt' },
   sleeper: { label: 'Sleeper Agent', team: 'Imposter ally', mission: 'You know the Citizen word, but you win with the Imposters.', accent: 'violet' },
   anarchist: { label: 'Wild Card', team: 'Neutral', mission: 'Convince the table to eject you first.', accent: 'yellow' },
   bodyguard: { label: 'Bodyguard', team: 'Citizen team', mission: 'You may protect another Citizen once.', accent: 'lime' }

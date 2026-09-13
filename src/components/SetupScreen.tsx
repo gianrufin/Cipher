@@ -311,7 +311,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     : 'Minimum reached. Ready to continue';
 
   const roleCards = [
-    { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Gets a three-seat radar clue.' },
+    { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Signal Sweep: exactly one of three seats is an Imposter.' },
     { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'Protects another player once.' },
     { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the true Citizen word.' },
     { key: 'anarchist' as const, name: 'Wild Card', team: 'Neutral', icon: Bomb, copy: 'Must rank first when voted out.' }
@@ -377,15 +377,12 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   )}
                 </div>
               ) : playerNames.map((name, index) => (
-                <div key={name} className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-3">
+                <div key={name} className="setup-player-card rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-3">
                   <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
-                  <PlayerAvatar name={name} src={playerPhotos[index]} className="h-11 w-11 border border-white/10 text-xs" />
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-stone-200">{name}</span>
-                    <button type="button" onClick={() => setSelfiePlayerIndex(index)} className={`mt-1 flex items-center gap-1 text-[10px] font-bold ${playerPhotos[index] ? 'text-lime-300' : 'text-[#ff8065]'}`}>
-                      <Camera className="h-3 w-3" /> {playerPhotos[index] ? 'Change photo' : 'Add optional photo'}
-                    </button>
-                  </div>
+                  <button type="button" onClick={() => setSelfiePlayerIndex(index)} className={`setup-photo-button ${playerPhotos[index] ? 'has-photo' : ''}`} aria-label={`${playerPhotos[index] ? 'Change' : 'Add'} optional photo for ${name}`} title="Optional photo">
+                    <PlayerAvatar name={name} src={playerPhotos[index]} className="h-12 w-12 border border-white/10 text-xs" /><span><Camera className="h-3 w-3" /></span>
+                  </button>
+                  <span className="min-w-0 flex-1 truncate text-sm font-bold text-stone-200">{name}</span>
                   <button type="button" onClick={() => removePlayer(index)} aria-label={`Remove ${name}`} className="text-stone-600 hover:text-[#ff6846]">
                     <Trash2 className="h-4 w-4" />
                   </button>

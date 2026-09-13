@@ -14,7 +14,7 @@ import { getRoleDefinition } from '../data/roleCatalog';
 
 const ROLE_COPY: Record<OnlineAssignment['role'], string> = {
   citizen: 'Find and eject every Imposter.', decoy: 'You are a Citizen, but your word is the alternate word.',
-  imposter: 'Blend in, survive, and decode the Citizen word.', inspector: 'Use your radar intel without exposing yourself.',
+  imposter: 'Blend in, survive, and decode the Citizen word.', inspector: 'Exactly one of your three Signal Sweep seats is an Imposter. Read their clues and steer the table.',
   bodyguard: 'You may pardon one innocent ejection.', sleeper: 'You know the Citizen word, but secretly help the Imposters.',
   anarchist: `${getRoleDefinition('anarchist').name}: bait the table into ejecting you first.`
 };
