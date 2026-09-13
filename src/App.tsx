@@ -5,7 +5,8 @@ import {
   EjectionReveal, EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
-import { selectNoRepeatPair } from './utils/wordHistory';
+import { secureShuffle } from './utils/wordHistory';
+import { publishCrewHistory, selectCrewPair, syncCrewHistory } from './utils/crewSync';
 import { Navbar } from './components/Navbar';
 import { SetupScreen } from './components/SetupScreen';
 import { PassAndRevealScreen } from './components/PassAndRevealScreen';
@@ -18,10 +19,10 @@ import { HowToPlayModal } from './components/HowToPlayModal';
 import { CustomPackModal } from './components/CustomPackModal';
 import { BodyguardDecision } from './components/BodyguardDecision';
 import { calculateMatchScores, updateCareerStats } from './utils/scoring';
-import { CipherAtmosphere } from './components/CipherAtmosphere';
 import { RestartMatchModal } from './components/RestartMatchModal';
 import { GameModeScreen } from './components/GameModeScreen';
 import { OnlineRoomScreen } from './components/OnlineRoomScreen';
+import { SettingsScreen } from './components/SettingsScreen';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -43,6 +44,7 @@ export default function App() {
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [isRestartOpen, setIsRestartOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Persistence: custom pairs & saved player roster
   const [customPairs, setCustomPairs] = useState<WordPair[]>(() => {
@@ -122,6 +124,10 @@ export default function App() {
   const [activeAudience, setActiveAudience] = useState<WordAudience>('family');
   const [activeDifficulty, setActiveDifficulty] = useState<WordDifficulty>('easy');
 
+  useEffect(() => {
+    void syncCrewHistory();
+  }, []);
+
   // Save custom pairs to local storage
   const handleSaveCustomPairs = (updated: WordPair[]) => {
     setCustomPairs(updated);
@@ -179,7 +185,7 @@ export default function App() {
     setSetupPhotos(playerPhotos);
 
     // Randomize whether wordA or wordB is the Citizen word
-    const flip = Math.random() > 0.5;
+    const flip = secureShuffle([true, false])[0];
     const citizenWord = flip ? selectedPair.wordA : selectedPair.wordB;
     const imposterWord = flip ? selectedPair.wordB : selectedPair.wordA;
 
@@ -204,19 +210,14 @@ export default function App() {
 
     // Pick modifier if enabled
     if (useModifiers) {
-      const mod = ROUND_MODIFIERS[Math.floor(Math.random() * ROUND_MODIFIERS.length)];
+      const mod = secureShuffle(ROUND_MODIFIERS)[0];
       setActiveModifier(mod);
     } else {
       setActiveModifier(null);
     }
 
     // Pick Imposters randomly
-    const indices = Array.from({ length: playerNames.length }, (_, i) => i);
-    // Fisher-Yates shuffle
-    for (let i = indices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [indices[i], indices[j]] = [indices[j], indices[i]];
-    }
+    const indices = secureShuffle(Array.from({ length: playerNames.length }, (_, i) => i));
     const imposterIndices = new Set(indices.slice(0, impostersCount));
 
     const nonImposterIndices = indices.slice(impostersCount);
@@ -285,6 +286,23 @@ export default function App() {
 
   const handleFinishPass = () => {
     setPhase('clue_round');
+  };
+
+  const handleReplaceRepeatedWord = async () => {
+    const pair = await selectCrewPair(activeCategory);
+    const flip = secureShuffle([true, false])[0];
+    const citizenWord = flip ? pair.wordA : pair.wordB;
+    const alternateWord = flip ? pair.wordB : pair.wordA;
+    setActivePair(pair);
+    setTrueCitizenWord(citizenWord);
+    setDecoyWord(alternateWord);
+    setPlayers(current => current.map(player => ({
+      ...player,
+      secretWord: player.role === 'imposter'
+        ? (gameMode === 'decoy' ? alternateWord : '')
+        : player.role === 'decoy' ? alternateWord : citizenWord
+    })));
+    void publishCrewHistory();
   };
 
   // Proceed to voting
@@ -416,6 +434,10 @@ export default function App() {
         'cipher_player_career_stats',
         'cipher_saved_players',
         'cipher_played_pairs_history',
+        'cipher_played_pairs_history_v2',
+        'cipher_recent_words_history',
+        'cipher_crew_code',
+        'cipher_crew_name',
         'cipher_has_completed_onboarding',
         'cipher_theme'
       ].forEach(key => localStorage.removeItem(key));
@@ -426,19 +448,21 @@ export default function App() {
   };
 
   // Play Rematch with same players
-  const handleRematch = () => {
+  const handleRematch = async () => {
     const cat = activeCategory;
-    const pair = selectNoRepeatPair(cat);
-
-    const imposterCount = (players.filter(p => p.role === 'imposter').length || 1) as 1 | 2 | 3;
-    const names = players.map(p => p.name);
-    const photos = players.map(p => p.avatarPhoto).filter((photo): photo is string => Boolean(photo));
-
-    if (photos.length !== players.length) {
-      setSetupPlayers(names);
+    let pair: WordPair;
+    try {
+      pair = await selectCrewPair(cat);
+    } catch {
+      setSetupPlayers(players.map(player => player.name));
+      setSetupPhotos(players.map(player => player.avatarPhoto || ''));
       setPhase('setup');
       return;
     }
+
+    const imposterCount = (players.filter(p => p.role === 'imposter').length || 1) as 1 | 2 | 3;
+    const names = players.map(p => p.name);
+    const photos = players.map(player => player.avatarPhoto || '');
 
     handleStartGame({
       playerNames: names,
@@ -477,7 +501,8 @@ export default function App() {
 
   const handleRestartMatch = () => {
     setIsRestartOpen(false);
-    handleRematch();
+    setIsSettingsOpen(false);
+    void handleRematch();
   };
 
   const handleEditSetup = () => {
@@ -487,16 +512,10 @@ export default function App() {
 
   return (
     <div className="cipher-shell min-h-screen flex flex-col font-sans antialiased selection:bg-[#ff6846] selection:text-stone-950">
-      <CipherAtmosphere />
-      {/* Universal Header Navbar */}
       <Navbar
-        onOpenRules={() => setIsRulesOpen(true)}
-        onOpenOnboarding={() => setPhase('onboarding')}
-        onOpenStats={matchSummary ? () => setPhase('game_stats') : undefined}
-        onResetGame={() => setIsRestartOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         gameActive={!['mode_select', 'setup', 'game_stats', 'onboarding', 'online_room'].includes(phase)}
         playerCount={players.length}
-        hasSessionStats={sessionStats.gamesPlayed > 0}
       />
 
       {/* Main Screen Router */}
@@ -532,9 +551,8 @@ export default function App() {
               specialRoles,
               audience: activeAudience,
               difficulty: activeDifficulty,
-              selectedCategoryId: activeCategory.id
+              selectedCategoryId: activeCategory.id === 'variety' ? 'random' : activeCategory.id
             }}
-            onOpenOnboarding={() => setPhase('onboarding')}
           />
         )}
 
@@ -545,6 +563,7 @@ export default function App() {
             mode={gameMode}
             categoryName={activeCategory.name}
             accomplicesAware={accomplicesAware}
+            onWordRepeated={handleReplaceRepeatedWord}
             onNextPlayer={handleNextPassPlayer}
             onFinishPass={handleFinishPass}
           />
@@ -614,7 +633,6 @@ export default function App() {
             categoryName={activeCategory.name}
             onRematch={handleRematch}
             onEditSetup={handleResetToSetup}
-            onResetAllData={handleResetAllData}
           />
         )}
       </main>
@@ -638,6 +656,14 @@ export default function App() {
         onRestart={handleRestartMatch}
         onEditSetup={handleEditSetup}
       />
+      {isSettingsOpen && (
+        <SettingsScreen
+          onClose={() => setIsSettingsOpen(false)}
+          onHowToPlay={() => { setIsSettingsOpen(false); setIsRulesOpen(true); }}
+          onResetApp={handleResetAllData}
+          onRestartMatch={!['mode_select', 'setup', 'game_stats', 'onboarding', 'online_room'].includes(phase) ? () => { setIsSettingsOpen(false); setIsRestartOpen(true); } : undefined}
+        />
+      )}
     </div>
   );
 }

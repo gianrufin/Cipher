@@ -9,7 +9,8 @@ import {
   WordCategory, WordDifficulty, WordPair
 } from '../types';
 import { BUILT_IN_CATEGORIES } from '../data/wordPacks';
-import { selectNoRepeatPair } from '../utils/wordHistory';
+import { selectCrewPair } from '../utils/crewSync';
+import { getWordPoolStatus } from '../utils/wordHistory';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
 import { PlayerAvatar } from './PlayerAvatar';
 import { SelfieCaptureModal } from './SelfieCaptureModal';
@@ -53,7 +54,6 @@ interface SetupScreenProps {
     difficulty: WordDifficulty;
     selectedCategoryId: string;
   };
-  onOpenOnboarding: () => void;
 }
 
 const STEPS = ['Players', 'Game style', 'Roles', 'Word vault', 'Review'];
@@ -67,7 +67,7 @@ const difficultyCopy: Record<WordDifficulty, string> = {
 };
 
 export const SetupScreen: React.FC<SetupScreenProps> = ({
-  onStartGame, customPairs, onOpenCustomModal, onOpenOnboarding, savedPlayers, initialPlayers = [], initialPlayerPhotos = [], initialConfig
+  onStartGame, customPairs, onOpenCustomModal, savedPlayers, initialPlayers = [], initialPlayerPhotos = [], initialConfig
 }) => {
   const [step, setStep] = useState(0);
   const [playerNames, setPlayerNames] = useState<string[]>(initialPlayers);
@@ -87,7 +87,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [specialRoles, setSpecialRoles] = useState<SpecialRoleConfig>(() => ({ ...(initialConfig?.specialRoles || EMPTY_ROLES) }));
   const [audience, setAudience] = useState<WordAudience>(initialConfig?.audience || 'family');
   const [difficulty, setDifficulty] = useState<WordDifficulty>(initialConfig?.difficulty || 'easy');
-  const [selectedCategoryId, setSelectedCategoryId] = useState(initialConfig?.selectedCategoryId || 'pinoy_everyday');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(initialConfig?.selectedCategoryId || 'random');
+  const [isLaunching, setIsLaunching] = useState(false);
 
   const isLargeLobby = playerNames.length >= 7;
   const maxImposters = playerNames.length <= 4 ? 1 : playerNames.length <= 6 ? 2 : 3;
@@ -143,6 +144,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     }
   }, [categories, selectedCategoryId]);
 
+  const selectedDeckPairs = selectedCategoryId === 'random'
+    ? categories.flatMap(category => category.pairs)
+    : categories.find(category => category.id === selectedCategoryId)?.pairs || [];
+  const selectedDeckStatus = getWordPoolStatus(selectedDeckPairs);
+
   const addPlayer = (event: React.FormEvent) => {
     event.preventDefault();
     const clean = newPlayerName.trim();
@@ -160,7 +166,6 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     }
     setPlayerNames(current => [...current, clean]);
     setPlayerPhotos(current => [...current, null]);
-    setSelfiePlayerIndex(playerNames.length);
     setNewPlayerName('');
     setErrorMessage('');
     triggerHaptic(25);
@@ -211,8 +216,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     triggerHaptic(20);
   };
 
-  const missingSelfies = playerPhotos.filter(photo => !photo).length;
-  const canContinue = step !== 0 || (playerNames.length >= 4 && missingSelfies === 0);
+  const canContinue = step !== 0 || playerNames.length >= 4;
+  const speedEjections: EliminationsPerVote = playerNames.length >= 7 ? 2 : 1;
+  const activeVotingPreset = votingStyle === 'open' && ejectionReveal === 'confirm' && allowSkip && eliminationsPerVote === 1
+    ? 'party'
+    : votingStyle === 'blind' && ejectionReveal === 'classified' && allowSkip && eliminationsPerVote === 1
+    ? 'detective'
+    : votingStyle === 'blind' && ejectionReveal === 'confirm' && !allowSkip && eliminationsPerVote === speedEjections
+    ? 'speed'
+    : 'custom';
 
   const continueSetup = () => {
     if (!canContinue) return;
@@ -221,12 +233,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     triggerHaptic(18);
   };
 
-  const launch = () => {
-    if (playerPhotos.length !== playerNames.length || playerPhotos.some(photo => !photo)) {
-      setErrorMessage('Every player needs a selfie before the game can start.');
-      setStep(0);
-      return;
-    }
+  const launch = async () => {
     const reservedSeats = Object.values(specialRoles).filter(Boolean).length + decoyCount;
     if (reservedSeats > playerNames.length - impostersCount - 2) {
       setErrorMessage('Reduce the Imposter, Decoy, or special-role count. Keep at least two standard Citizens in the game.');
@@ -239,14 +246,25 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       return;
     }
     const category = selectedCategoryId === 'random'
-      ? categories[Math.floor(Math.random() * categories.length)]
+      ? {
+          id: 'variety',
+          name: 'Variety Deck',
+          iconName: 'Sparkles',
+          description: 'All eligible topics shuffled together.',
+          audiences: [audience],
+          pairs: categories.flatMap(item => item.pairs)
+        } as WordCategory
       : categories.find(item => item.id === selectedCategoryId) || categories[0];
 
-    playWhoosh();
-    triggerHaptic([45, 35, 60]);
-    onStartGame({
+    setIsLaunching(true);
+    setErrorMessage('');
+    try {
+      const selectedPair = await selectCrewPair(category);
+      playWhoosh();
+      triggerHaptic([45, 35, 60]);
+      onStartGame({
       playerNames,
-      playerPhotos: playerPhotos as string[],
+      playerPhotos: playerPhotos.map(photo => photo || ''),
       impostersCount,
       mode,
       accomplicesAware,
@@ -257,17 +275,21 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       allowSkip,
       votingStyle,
       category,
-      selectedPair: selectNoRepeatPair(category),
+      selectedPair,
       specialRoles,
       difficulty,
       audience
-    });
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Cipher could not prepare a fresh word pair.');
+      setStep(3);
+    } finally {
+      setIsLaunching(false);
+    }
   };
 
   const playerGuidance = missingPlayers
     ? `${missingPlayers} more player${missingPlayers === 1 ? '' : 's'} needed`
-    : missingSelfies
-    ? `${missingSelfies} player selfie${missingSelfies === 1 ? '' : 's'} needed`
     : playerNames.length >= 7
     ? 'Large Lobby Roles unlocked'
     : 'Minimum reached. Ready to continue';
@@ -282,10 +304,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   return (
     <div className="w-full max-w-lg mx-auto min-h-[calc(100svh-61px)] px-4 pt-5 pb-28 flex flex-col">
       <header className="mb-6">
-        <div className="flex items-center justify-between cipher-kicker">
-          <span>New session</span>
-          <button type="button" onClick={onOpenOnboarding} className="text-[#ff8065]">How to play</button>
-        </div>
+        <div className="cipher-kicker"><span>New session</span></div>
         <div className="mt-4 grid grid-cols-5 gap-1.5">
           {STEPS.map((label, index) => (
             <div key={label}>
@@ -348,7 +367,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                   <div className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold text-stone-200">{name}</span>
                     <button type="button" onClick={() => setSelfiePlayerIndex(index)} className={`mt-1 flex items-center gap-1 text-[10px] font-bold ${playerPhotos[index] ? 'text-lime-300' : 'text-[#ff8065]'}`}>
-                      <Camera className="h-3 w-3" /> {playerPhotos[index] ? 'Retake selfie' : 'Take selfie'}
+                      <Camera className="h-3 w-3" /> {playerPhotos[index] ? 'Change photo' : 'Add optional photo'}
                     </button>
                   </div>
                   <button type="button" onClick={() => removePlayer(index)} aria-label={`Remove ${name}`} className="text-stone-600 hover:text-[#ff6846]">
@@ -369,10 +388,11 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
             <div>
               <p className="cipher-kicker mb-3">Quick voting presets</p>
               <div className="grid grid-cols-3 gap-2">
-                <PresetButton title="Party" copy="Open and forgiving" onClick={() => applyVotingPreset('party')} />
-                <PresetButton title="Detective" copy="Silent and classified" onClick={() => applyVotingPreset('detective')} />
-                <PresetButton title="Speed" copy="Fast, no skips" onClick={() => applyVotingPreset('speed')} />
+                <PresetButton active={activeVotingPreset === 'party'} title="Party" copy="Open and forgiving" onClick={() => applyVotingPreset('party')} />
+                <PresetButton active={activeVotingPreset === 'detective'} title="Detective" copy="Silent and classified" onClick={() => applyVotingPreset('detective')} />
+                <PresetButton active={activeVotingPreset === 'speed'} title="Speed" copy="Fast, no skips" onClick={() => applyVotingPreset('speed')} />
               </div>
+              {activeVotingPreset === 'custom' && <p className="mt-2 text-xs font-bold text-[var(--coral)]">Custom voting mix</p>}
             </div>
             <ChoiceGroup
               label="Imposter information"
@@ -573,8 +593,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                 <CategoryButton
                   active={selectedCategoryId === 'random'}
-                  title="Random mix"
-                  copy={`${categories.reduce((total, category) => total + category.pairs.length, 0)} eligible pairs`}
+                  title="Variety Deck"
+                  copy={`${getWordPoolStatus(categories.flatMap(category => category.pairs)).freshPairs} fresh pairs · recommended for long game nights`}
                   onClick={() => setSelectedCategoryId('random')}
                 />
                 {categories.map(category => (
@@ -582,11 +602,16 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                     key={category.id}
                     active={selectedCategoryId === category.id}
                     title={category.name}
-                    copy={`${category.pairs.length} ${difficulty} pairs · ${category.description}`}
+                    copy={`${getWordPoolStatus(category.pairs).freshPairs} fresh of ${category.pairs.length} · ${category.description}`}
                     onClick={() => setSelectedCategoryId(category.id)}
                   />
                 ))}
               </div>
+              <p className={`mt-3 text-xs font-bold ${selectedDeckStatus.freshPairs >= 20 ? 'text-emerald-400' : 'text-[var(--coral)]'}`}>
+                {selectedDeckStatus.freshPairs >= 20
+                  ? `${selectedDeckStatus.freshPairs} fresh pairs. Ready for a long game night.`
+                  : `Only ${selectedDeckStatus.freshPairs} fresh pairs remain. Choose Variety Deck for a 20-game sitting.`}
+              </p>
             </div>
           </section>
         )}
@@ -604,7 +629,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               <ReviewRow label="Game" value={`${mode === 'decoy' ? 'Decoy word' : 'Blind phantom'} · ${votingStyle === 'open' ? 'Open vote' : 'Silent ballot'} · ${eliminationsPerVote === 2 ? 'Double elimination' : 'Single elimination'}`} />
               <ReviewRow label="Voting" value={`${ejectionReveal === 'confirm' ? 'Confirmation on' : 'Identity classified'} · ${allowSkip ? 'Skip allowed' : 'Vote required'}`} />
               <ReviewRow label="Cast" value={`${impostersCount} Imposter${impostersCount > 1 ? 's' : ''} · ${decoyCount} Decoy${decoyCount === 1 ? '' : 's'} · ${Object.values(specialRoles).filter(Boolean).length} special roles`} />
-              <ReviewRow label="Words" value={`${audience} · ${difficulty} · ${selectedCategoryId === 'random' ? 'Random mix' : categories.find(category => category.id === selectedCategoryId)?.name || 'Pinoy Everyday'}`} />
+              <ReviewRow label="Words" value={`${audience} · ${difficulty} · ${selectedCategoryId === 'random' ? 'Variety Deck' : categories.find(category => category.id === selectedCategoryId)?.name || 'Pinoy Everyday'}`} />
             </div>
 
             <div className="rounded-2xl border border-[#ff6846]/20 bg-[#ff6846]/[0.05] p-4 flex gap-3">
@@ -642,8 +667,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               Continue <ArrowRight className="h-4 w-4" />
             </button>
           ) : (
-            <button type="button" onClick={launch} className="cipher-button-primary flex-1">
-              Start Cipher <Sparkles className="h-4 w-4" />
+            <button type="button" disabled={isLaunching} onClick={() => void launch()} className="cipher-button-primary flex-1 disabled:opacity-50">
+              {isLaunching ? 'Preparing fresh words…' : 'Deal roles'} <Sparkles className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -652,10 +677,10 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   );
 };
 
-const PresetButton = ({ title, copy, onClick }: { title: string; copy: string; onClick: () => void }) => (
-  <button type="button" onClick={onClick} className="evidence-note min-h-24 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3 text-left transition-transform hover:-translate-y-0.5">
-    <span className="block text-sm font-black text-stone-100">{title}</span>
-    <span className="mt-2 block text-[10px] leading-4 text-stone-500">{copy}</span>
+const PresetButton = ({ active, title, copy, onClick }: { active: boolean; title: string; copy: string; onClick: () => void }) => (
+  <button type="button" aria-pressed={active} onClick={onClick} className={`min-h-24 border-2 p-3 text-left transition-transform hover:-translate-y-0.5 ${active ? 'border-[var(--ink)] bg-[var(--coral)] text-white' : 'border-[var(--line)] bg-[var(--paper)]'}`}>
+    <span className="flex items-center justify-between text-sm font-black">{title}{active && <Check className="h-4 w-4" />}</span>
+    <span className={`mt-2 block text-[10px] leading-4 ${active ? 'text-white/85' : 'text-stone-500'}`}>{copy}</span>
   </button>
 );
 

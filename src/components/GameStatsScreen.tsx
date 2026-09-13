@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Bomb, ChevronDown, Flame, RefreshCw, RotateCcw, Share2,
+  Bomb, ChevronDown, Flame, RotateCcw, Share2,
   Shield, Trophy, Users
 } from 'lucide-react';
 import { MatchSummary, Player, PlayerCareerStats, SessionStats } from '../types';
-import { triggerHaptic } from '../utils/soundEffects';
 import { ShareResultModal } from './ShareResultModal';
 
 interface GameStatsScreenProps {
@@ -17,7 +16,6 @@ interface GameStatsScreenProps {
   categoryName: string;
   onRematch: () => void;
   onEditSetup: () => void;
-  onResetAllData: () => void;
 }
 
 const winnerMeta = {
@@ -28,11 +26,11 @@ const winnerMeta = {
 
 export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
   players, matchSummary, sessionStats, careerStats, trueCitizenWord, decoyWord,
-  categoryName, onRematch, onEditSetup, onResetAllData
+  categoryName, onRematch, onEditSetup
 }) => {
   const [shareOpen, setShareOpen] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [expandedScore, setExpandedScore] = useState<string | null>(null);
+  const [wordFeedback, setWordFeedback] = useState<string>('');
   const meta = winnerMeta[matchSummary.winner];
   const WinnerIcon = meta.icon;
   const scores = matchSummary.playerScores || [];
@@ -130,26 +128,29 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
           </div>
         </section>
 
-        {!showResetConfirm ? (
-          <button type="button" onClick={() => setShowResetConfirm(true)} className="mx-auto flex items-center gap-1.5 text-[10px] text-stone-600 hover:text-stone-400">
-            <RefreshCw className="h-3 w-3" /> Reset all Cipher data
-          </button>
-        ) : (
-          <div className="rounded-2xl border border-[#ff6846]/25 bg-[#ff6846]/[0.06] p-4 text-center">
-            <p className="text-xs font-bold text-stone-200">Reset everything saved by Cipher?</p>
-            <p className="mt-2 text-[11px] leading-5 text-stone-400">Player scores, saved groups, match history, and preferences will be removed. Custom word packs will stay.</p>
-            <div className="mt-3 flex justify-center gap-2">
-              <button type="button" onClick={() => setShowResetConfirm(false)} className="cipher-button-ghost">Cancel</button>
-              <button type="button" onClick={() => { onResetAllData(); setShowResetConfirm(false); triggerHaptic(20); }} className="cipher-button-primary">Reset everything</button>
-            </div>
+        <section className="cipher-panel p-5">
+          <p className="cipher-kicker">Help tune your deck</p>
+          <h2 className="mt-2 font-display text-xl font-black text-stone-50">How was this word pair?</h2>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {['Good pair', 'Too similar', 'Too different', 'Seen before'].map(option => (
+              <button key={option} aria-pressed={wordFeedback === option} onClick={() => {
+                setWordFeedback(option);
+                try {
+                  const key = [trueCitizenWord, decoyWord].map(word => word.trim().toLowerCase()).sort().join('|');
+                  const stored = JSON.parse(localStorage.getItem('cipher_word_feedback') || '{}');
+                  localStorage.setItem('cipher_word_feedback', JSON.stringify({ ...stored, [key]: option }));
+                } catch { /* feedback remains selected for this screen */ }
+              }} className={`border-2 border-[var(--ink)] p-3 text-left text-xs font-black ${wordFeedback === option ? 'bg-[var(--coral)]' : 'bg-[var(--paper)]'}`}>{option}</button>
+            ))}
           </div>
-        )}
+        </section>
+
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/[0.08] bg-[#0b0b09]/92 p-4 backdrop-blur-xl">
         <div className="mx-auto grid max-w-lg grid-cols-2 gap-2">
-          <button type="button" onClick={onEditSetup} className="cipher-button-secondary"><Users className="h-4 w-4" /> Edit setup</button>
-          <button type="button" onClick={onRematch} className="cipher-button-primary"><RotateCcw className="h-4 w-4" /> Play again</button>
+          <button type="button" onClick={onEditSetup} className="cipher-button-secondary"><Users className="h-4 w-4" /> Change setup</button>
+          <button type="button" onClick={onRematch} className="cipher-button-primary"><RotateCcw className="h-4 w-4" /> Deal fresh words</button>
         </div>
       </div>
 

@@ -3,12 +3,26 @@ export interface Env { ROOMS: DurableObjectNamespace; }
 export default {
   async fetch(request: Request, env: Env) {
     const url = new URL(request.url);
-    if (url.pathname === '/health') return Response.json({ ok: true, service: 'cipher-signaling' });
+    if (request.method === 'OPTIONS') return cors(new Response(null, { status: 204 }));
+    if (url.pathname === '/health') return cors(Response.json({ ok: true, service: 'cipher-signaling' }));
+    const crewMatch = url.pathname.match(/^\/crew\/([A-Z0-9]{4,8})\/(history|reserve)$/i);
+    if (crewMatch) {
+      const crew = env.ROOMS.get(env.ROOMS.idFromName(`crew:${crewMatch[1].toUpperCase()}`));
+      return cors(await crew.fetch(request));
+    }
     const match = url.pathname.match(/^\/room\/([A-Z0-9]{4,8})$/i);
     if (!match) return new Response('Cipher signaling service', { status: 200 });
     const room = env.ROOMS.get(env.ROOMS.idFromName(match[1].toUpperCase()));
     return room.fetch(request);
   }
+};
+
+const cors = (response: Response) => {
+  const next = new Response(response.body, response);
+  next.headers.set('access-control-allow-origin', '*');
+  next.headers.set('access-control-allow-methods', 'GET,POST,OPTIONS');
+  next.headers.set('access-control-allow-headers', 'content-type');
+  return next;
 };
 
 export class CipherRoom {
@@ -22,8 +36,41 @@ export class CipherRoom {
   }
 
   async fetch(request: Request) {
-    if (request.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket required', { status: 426 });
     const url = new URL(request.url);
+    if (url.pathname.endsWith('/history') || url.pathname.endsWith('/reserve')) {
+      const stored = await this.state.storage.get<{ pairKeys: string[]; wordKeys: string[] }>('word-history')
+        || { pairKeys: [], wordKeys: [] };
+      if (request.method === 'GET') return Response.json(stored);
+      if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+      const incoming = await request.json() as {
+        pairKeys?: string[];
+        wordKeys?: string[];
+        candidates?: Array<{ id: string; wordIds: string[] }>;
+      };
+      if (url.pathname.endsWith('/reserve')) {
+        const reservation = await this.state.storage.transaction(async transaction => {
+          const latest = await transaction.get<{ pairKeys: string[]; wordKeys: string[] }>('word-history')
+            || { pairKeys: [], wordKeys: [] };
+          const chosen = (incoming.candidates || []).find(candidate => !latest.pairKeys.includes(candidate.id));
+          if (!chosen) return { exhausted: true as const, history: latest };
+          const history = {
+            pairKeys: [...new Set([...latest.pairKeys, chosen.id])].slice(-2000),
+            wordKeys: [...new Set([...latest.wordKeys, ...chosen.wordIds])].slice(-160)
+          };
+          await transaction.put('word-history', history);
+          return { exhausted: false as const, id: chosen.id, history };
+        });
+        if (reservation.exhausted) return Response.json({ ...reservation.history, exhausted: true }, { status: 409 });
+        return Response.json({ id: reservation.id, ...reservation.history });
+      }
+      const history = {
+        pairKeys: [...new Set([...stored.pairKeys, ...(incoming.pairKeys || [])])].slice(-2000),
+        wordKeys: [...new Set([...stored.wordKeys, ...(incoming.wordKeys || [])])].slice(-160)
+      };
+      await this.state.storage.put('word-history', history);
+      return Response.json(history);
+    }
+    if (request.headers.get('Upgrade') !== 'websocket') return new Response('WebSocket required', { status: 426 });
     const peerId = url.searchParams.get('peerId');
     const host = url.searchParams.get('host') === '1';
     if (!peerId) return new Response('peerId required', { status: 400 });
@@ -53,7 +100,7 @@ export class CipherRoom {
   private disconnect(socket: WebSocket) {
     const identity = this.clients.get(socket);
     this.clients.delete(socket);
-    if (identity) this.clients.forEach(client => client.send(JSON.stringify({ type: 'peer-left', peerId: identity.peerId })));
+    if (identity) this.clients.forEach((_clientIdentity, client) => client.send(JSON.stringify({ type: 'peer-left', peerId: identity.peerId })));
   }
 
   private sendToPeer(peerId: string, data: unknown) {
