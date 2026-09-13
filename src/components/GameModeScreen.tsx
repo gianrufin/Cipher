@@ -1,14 +1,27 @@
 import React from 'react';
 import { ArrowRight, Smartphone, Users } from 'lucide-react';
+import { getCrewProfile, getPlayedPairKeys } from '../utils/wordHistory';
 
-export const GameModeScreen = ({ onLocal, onOnline }: { onLocal: () => void; onOnline: () => void }) => (
-  <div className="mx-auto w-full max-w-lg px-4 py-12">
-    <p className="cipher-kicker">Case file 001 / connection</p>
-    <h1 className="mt-3 font-display text-5xl font-black tracking-[-.05em] text-stone-50">How is your crew playing?</h1>
-    <p className="mt-4 max-w-md text-sm leading-6 text-stone-500">Use one phone around the table, or let every player cast a private ballot from their own device.</p>
-    <div className="mt-8 grid gap-4">
-      <button type="button" onClick={onLocal} className="cipher-panel evidence-note flex items-center gap-4 p-5 text-left"><span className="role-icon role-amber"><Users className="h-5 w-5" /></span><span className="min-w-0 flex-1"><strong className="block text-lg text-stone-100">Pass and play</strong><small className="mt-1 block text-stone-500">Full game on one device. Works completely offline after loading.</small></span><ArrowRight className="h-5 w-5 text-stone-500" /></button>
-      <button type="button" onClick={onOnline} className="cipher-panel evidence-note flex items-center gap-4 p-5 text-left"><span className="role-icon role-sky"><Smartphone className="h-5 w-5" /></span><span className="min-w-0 flex-1"><strong className="block text-lg text-stone-100">Live room</strong><small className="mt-1 block text-stone-500">Host a same-Wi-Fi room and collect silent ballots on each phone.</small></span><ArrowRight className="h-5 w-5 text-stone-500" /></button>
+export const GameModeScreen = ({ onLocal, onOnline }: { onLocal: () => void; onOnline: () => void }) => {
+  const crew = getCrewProfile();
+  const played = getPlayedPairKeys().size;
+  return (
+    <div className="parlor-home mx-auto flex min-h-[calc(100svh-73px)] w-full max-w-lg flex-col px-5 pb-10 pt-8">
+      <p className="cipher-eyebrow">A word game for suspicious friends</p>
+      <h1 className="parlor-title mt-4">WHO DOESN’T<br />BELONG?</h1>
+      <div className="parlor-orbit" aria-hidden="true"><span>C</span><span>I</span><span>P</span><span>H</span><span>E</span><span>R</span></div>
+      <p className="mt-6 max-w-sm text-base font-semibold leading-7 text-[var(--muted)]">Deal secret words, give careful clues, and catch the player bluffing at the table.</p>
+
+      {crew.code && <div className="crew-ticket mt-7"><div><small>Playing as</small><strong>{crew.name || 'My crew'}</strong></div><div><small>Code</small><strong>{crew.code}</strong></div><div><small>History</small><strong>{played} pairs</strong></div></div>}
+
+      <div className="mt-auto grid gap-3 pt-10">
+        <button type="button" onClick={onLocal} className="mode-button mode-button-primary">
+          <span className="mode-number">01</span><span><strong>Pass & Play</strong><small>One phone around the table</small></span><Users className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
+        </button>
+        <button type="button" onClick={onOnline} className="mode-button">
+          <span className="mode-number">02</span><span><strong>Live Room</strong><small>Every player joins privately</small></span><Smartphone className="h-6 w-6" /><ArrowRight className="h-5 w-5" />
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
