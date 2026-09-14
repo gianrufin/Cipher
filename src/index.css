@@ -520,6 +520,16 @@ input:focus-visible {
 
 .settings-section { margin-top: 34px; border-top: 3px solid var(--ink); padding-top: 14px; }
 .settings-section h2 { font: 800 22px 'Bricolage Grotesque', sans-serif; }
+.settings-home-card { margin-top:24px; border:2px solid var(--ink); background:var(--paper); box-shadow:4px 4px 0 var(--ink); }
+.settings-home-card>button { display:grid; width:100%; grid-template-columns:44px 1fr auto; align-items:center; gap:12px; padding:15px; text-align:left; }
+.settings-home-card strong,.settings-home-card small { display:block; }
+.settings-home-card strong { font:900 18px 'Bricolage Grotesque',sans-serif; }
+.settings-home-card small { margin-top:3px; color:var(--muted); font-size:10px; }
+.settings-home-icon { display:grid; width:44px; height:44px; place-items:center; border:2px solid var(--ink); border-radius:50%; background:var(--coral); }
+.settings-home-card .confirm-strip { margin:0 14px 14px; }
+.setup-progress>div { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:10px; }
+.setup-progress>div span { height:4px; background:rgba(255,255,255,.1); }
+.setup-progress>div span.active { background:var(--coral); }
 .settings-row { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 14px; font-weight: 700; text-align: left; }
 .cipher-segmented { display: flex; border: 2px solid var(--ink); border-radius: 99px; padding: 2px; background: var(--paper); }
 .cipher-segmented button { border-radius: 99px; padding: 6px 10px; font-size: 10px; font-weight: 900; text-transform: uppercase; }

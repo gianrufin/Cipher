@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Coffee, Copy, RefreshCw, RotateCcw, Settings2, UserRoundSearch, Vibrate, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Coffee, Copy, Home, RefreshCw, RotateCcw, Settings2, UserRoundSearch, Vibrate, Volume2, VolumeX } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { isSoundEnabled, setSoundEnabled } from '../utils/soundEffects';
 import { createCrewCode, getCrewProfile, getPlayedPairKeys, resetPlayedPairsHistory, saveCrewProfile } from '../utils/wordHistory';
@@ -11,10 +11,11 @@ interface SettingsScreenProps {
   onRoleArchive: () => void;
   onReplayOnboarding: () => void;
   onResetApp: () => void;
+  onStartNewGame: () => void;
   onRestartMatch?: () => void;
 }
 
-export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowToPlay, onRoleArchive, onReplayOnboarding, onResetApp, onRestartMatch }) => {
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowToPlay, onRoleArchive, onReplayOnboarding, onResetApp, onStartNewGame, onRestartMatch }) => {
   const profile = getCrewProfile();
   const [crewName, setCrewName] = useState(profile.name);
   const [crewCode, setCrewCode] = useState(profile.code);
@@ -25,7 +26,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowTo
   const [syncState, setSyncState] = useState<CrewSyncState>('disabled');
   const [historyCount, setHistoryCount] = useState(getPlayedPairKeys().size);
   const [copied, setCopied] = useState(false);
-  const [confirmReset, setConfirmReset] = useState<'history' | 'app' | null>(null);
+  const [confirmReset, setConfirmReset] = useState<'history' | 'app' | 'new' | null>(null);
 
   useEffect(() => {
     const update = () => setHistoryCount(getPlayedPairKeys().size);
@@ -56,6 +57,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowTo
           <Settings2 className="h-5 w-5 text-[var(--muted)]" />
         </header>
         <h1 className="mt-10 font-display text-5xl font-black tracking-[-.05em]">Make it yours.</h1>
+        <section className="settings-home-card">
+          <button onClick={() => setConfirmReset('new')}>
+            <span className="settings-home-icon"><Home className="h-5 w-5" /></span>
+            <span><strong>Start a new game</strong><small>Return home and choose a game mode.</small></span>
+            <span aria-hidden="true">›</span>
+          </button>
+          {confirmReset === 'new' && <div className="confirm-strip"><span>Leave the current flow and return home? Saved leaderboard scores will stay.</span><button onClick={onStartNewGame}>Go home</button><button onClick={() => setConfirmReset(null)}>Cancel</button></div>}
+        </section>
 
         <section className="settings-section">
           <h2>Experience</h2>
@@ -95,7 +104,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onClose, onHowTo
         </section>
 
         <section className="settings-section">
-          <h2>Current game</h2>
+          <h2>Game and data</h2>
           {onRestartMatch && <button className="settings-row w-full text-[var(--coral)]" onClick={onRestartMatch}><span>Restart match</span><RotateCcw className="h-4 w-4" /></button>}
           {confirmReset === 'app' ? <div className="confirm-strip mt-3"><span>Erase scores, roster and preferences?</span><button onClick={onResetApp}>Erase</button><button onClick={() => setConfirmReset(null)}>Cancel</button></div> : <button className="settings-row w-full" onClick={() => setConfirmReset('app')}><span>Reset app data</span><span>›</span></button>}
         </section>
