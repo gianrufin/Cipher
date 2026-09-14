@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, X } from 'lucide-react';
 import { ROLE_CATALOG, RoleDefinition } from '../data/roleCatalog';
 
@@ -29,15 +30,17 @@ export const RoleInfoButton = ({ role }: { role: RoleDefinition }) => {
   return <><button type="button" onClick={event => { event.stopPropagation(); setOpen(true); }} className="role-mini" aria-label={`Learn about ${role.name}`}><img src={role.image} alt="" /></button>{open && <RoleSheet role={role} onClose={() => setOpen(false)} />}</>;
 };
 
-const RoleSheet = ({ role, onClose }: { role: RoleDefinition; onClose: () => void }) => <div className="fixed inset-0 z-[110] flex items-end bg-black/55" onClick={onClose}>
-  <article className="role-sheet mx-auto w-full max-w-lg" onClick={event => event.stopPropagation()}>
-    <button onClick={onClose} className="cipher-icon-button absolute right-5 top-5" aria-label="Close role"><X className="h-4 w-4" /></button>
-    <img src={role.image} alt={`Illustration of the ${role.name} role`} className="role-sheet-art" />
-    <p className="cipher-eyebrow mt-5">{role.alignment} · {role.complexity}</p>
-    <h2 className="mt-2 font-display text-4xl font-black">{role.name}</h2>
-    <p className="mt-3 text-sm font-semibold leading-6">{role.summary}</p>
-    <dl className="role-facts mt-6">
-      <div><dt>You know</dt><dd>{role.knows}</dd></div><div><dt>Your power</dt><dd>{role.power}</dd></div><div><dt>You win when</dt><dd>{role.wins}</dd></div><div><dt>Best with</dt><dd>{role.recommended}</dd></div>
-    </dl>
+const RoleSheet = ({ role, onClose }: { role: RoleDefinition; onClose: () => void }) => createPortal(<div className="role-detail-overlay" role="dialog" aria-modal="true" aria-labelledby="role-detail-title">
+  <article className="role-sheet mx-auto w-full max-w-lg">
+    <header className="role-sheet-header"><span className="cipher-eyebrow">Role archive</span><button onClick={onClose} className="cipher-icon-button" aria-label="Close role"><X className="h-4 w-4" /></button></header>
+    <main className="role-sheet-content">
+      <img src={role.image} alt={`Illustration of the ${role.name} role`} className="role-sheet-art" />
+      <p className="cipher-eyebrow mt-5">{role.alignment} · {role.complexity}</p>
+      <h2 id="role-detail-title" className="mt-2 font-display text-4xl font-black">{role.name}</h2>
+      <p className="mt-3 text-sm font-semibold leading-6">{role.summary}</p>
+      <dl className="role-facts mt-6">
+        <div><dt>You know</dt><dd>{role.knows}</dd></div><div><dt>Your power</dt><dd>{role.power}</dd></div><div><dt>You win when</dt><dd>{role.wins}</dd></div><div><dt>Best with</dt><dd>{role.recommended}</dd></div>
+      </dl>
+    </main>
   </article>
-</div>;
+</div>, document.body);
