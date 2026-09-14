@@ -66,12 +66,14 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
     const visibility = () => { if (document.hidden) conceal(); };
     window.addEventListener('blur', hide);
     window.addEventListener('pointerup', hide);
-    window.addEventListener('pointercancel', hide);
+    window.addEventListener('touchend', hide);
+    window.addEventListener('touchcancel', hide);
     document.addEventListener('visibilitychange', visibility);
     return () => {
       window.removeEventListener('blur', hide);
       window.removeEventListener('pointerup', hide);
-      window.removeEventListener('pointercancel', hide);
+      window.removeEventListener('touchend', hide);
+      window.removeEventListener('touchcancel', hide);
       document.removeEventListener('visibilitychange', visibility);
       if (holdTimer.current) clearInterval(holdTimer.current);
     };
@@ -124,9 +126,18 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
     <button
       key="private-hold-control"
       type="button"
-      onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); startHold(); }}
+      onPointerDown={event => {
+        event.preventDefault();
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Global release listeners remain the fallback. */ }
+        startHold();
+      }}
       onPointerUp={conceal}
-      onPointerCancel={conceal}
+      onPointerCancel={event => {
+        // Android can cancel its pointer stream when a held finger drifts. The
+        // corresponding touchend/touchcancel is the reliable release signal.
+        if (event.pointerType !== 'touch') conceal();
+      }}
+      onTouchMove={event => event.preventDefault()}
       onContextMenu={event => event.preventDefault()}
       className={isRevealed ? 'reveal-hold-capture touch-none' : 'reveal-hold mt-9 touch-none'}
       aria-label={isRevealed ? 'Keep holding. Release anywhere to hide.' : 'Press and hold to view your private word'}
