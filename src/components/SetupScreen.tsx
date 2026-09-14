@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowLeft, ArrowRight, BadgeHelp, Bomb, BookOpen, Camera, Check, ChevronRight,
   EyeOff, Flame, HeartHandshake, ScanSearch, ShieldCheck, Sparkles,
@@ -75,6 +76,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [playerNames, setPlayerNames] = useState<string[]>(initialPlayers);
   const [playerPhotos, setPlayerPhotos] = useState<Array<string | null>>(() => initialPlayers.map((_, index) => initialPlayerPhotos[index] || null));
   const [selfiePlayerIndex, setSelfiePlayerIndex] = useState<number | null>(null);
+  const [retakePlayerIndex, setRetakePlayerIndex] = useState<number | null>(null);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [impostersCount, setImpostersCount] = useState<1 | 2 | 3>(initialConfig?.impostersCount || 1);
@@ -379,8 +381,8 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
               ) : playerNames.map((name, index) => (
                 <div key={name} className="setup-player-card rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-3">
                   <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
-                  <button type="button" onClick={() => setSelfiePlayerIndex(index)} className={`setup-photo-button ${playerPhotos[index] ? 'has-photo' : ''}`} aria-label={`${playerPhotos[index] ? 'Change' : 'Add'} optional photo for ${name}`} title="Optional photo">
-                    <PlayerAvatar name={name} src={playerPhotos[index]} className="h-12 w-12 border border-white/10 text-xs" /><span><Camera className="h-3 w-3" /></span>
+                  <button type="button" onClick={() => playerPhotos[index] ? setRetakePlayerIndex(index) : setSelfiePlayerIndex(index)} className={`setup-photo-button ${playerPhotos[index] ? 'has-photo' : ''}`} aria-label={`${playerPhotos[index] ? 'Retake' : 'Add'} optional photo for ${name}`} title={playerPhotos[index] ? 'View or retake photo' : 'Add optional photo'}>
+                    <PlayerAvatar name={name} src={playerPhotos[index]} className="h-12 w-12 border border-white/10 text-xs" />{!playerPhotos[index] && <span><Camera className="h-3 w-3" /></span>}
                   </button>
                   <span className="min-w-0 flex-1 truncate text-sm font-bold text-stone-200">{name}</span>
                   <button type="button" onClick={() => removePlayer(index)} aria-label={`Remove ${name}`} className="text-stone-600 hover:text-[#ff6846]">
@@ -664,6 +666,15 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
           <p className="mt-5 rounded-xl border border-[#ff6846]/25 bg-[#ff6846]/10 px-3 py-2 text-xs text-[#ff9a84]">{errorMessage}</p>
         )}
       </main>
+
+      {retakePlayerIndex !== null && createPortal(<div className="vote-popup" role="dialog" aria-modal="true" aria-labelledby="retake-selfie-title">
+        <section>
+          <p className="cipher-eyebrow">Player photo</p>
+          <h2 id="retake-selfie-title" className="mt-2 font-display text-3xl font-black">Retake {playerNames[retakePlayerIndex]}'s selfie?</h2>
+          <p className="mt-3 text-sm leading-6 text-[var(--muted)]">Their current photo will stay in place until a new selfie is captured.</p>
+          <div className="mt-6 grid grid-cols-2 gap-2"><button type="button" onClick={() => setRetakePlayerIndex(null)} className="cipher-button-secondary">Keep photo</button><button type="button" onClick={() => { setSelfiePlayerIndex(retakePlayerIndex); setRetakePlayerIndex(null); }} className="cipher-button-primary"><Camera className="h-4 w-4" /> Retake</button></div>
+        </section>
+      </div>, document.body)}
 
       <SelfieCaptureModal
         playerName={selfiePlayerIndex === null ? null : playerNames[selfiePlayerIndex]}
