@@ -26,6 +26,7 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { CrewScreen } from './components/CrewScreen';
 import { RoleArchive } from './components/RoleArchive';
 import { getActiveCrew, markCrewPlayed, setActiveCrew } from './utils/crewStore';
+import { useWakeLock } from './hooks/useWakeLock';
 
 const DEFAULT_CUSTOM_PAIRS: WordPair[] = [
   { wordA: 'Superman', wordB: 'Batman', hint: 'DC Superheroes' },
@@ -131,6 +132,8 @@ export default function App() {
   const [activeAudience, setActiveAudience] = useState<WordAudience>('family');
   const [activeDifficulty, setActiveDifficulty] = useState<WordDifficulty>('easy');
   const [recovery, setRecovery] = useState<MatchSnapshot|undefined>(()=>{try{const raw=localStorage.getItem(MATCH_SNAPSHOT_KEY);return raw?JSON.parse(raw):undefined;}catch{return undefined;}});
+  const localMatchActive = !['onboarding','mode_select','crew_select','online_room','setup','game_stats'].includes(phase);
+  useWakeLock(localMatchActive);
 
   useEffect(() => {
     void syncCrewHistory();
@@ -139,6 +142,13 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [phase]);
+
+  useEffect(() => {
+    if (!localMatchActive) return;
+    const protectMatch = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', protectMatch);
+    return () => window.removeEventListener('beforeunload', protectMatch);
+  }, [localMatchActive]);
 
   useEffect(()=>{
     const active=!['onboarding','mode_select','crew_select','online_room','setup','game_stats'].includes(phase);

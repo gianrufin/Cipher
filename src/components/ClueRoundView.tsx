@@ -21,8 +21,9 @@ export const ClueRoundView: React.FC<Props> = ({ players, activeModifier, roundN
   const totalSeconds=activeModifier?.id==='mod_rapid'?5:timerSeconds;
   const [timeLeft,setTimeLeft]=useState<number>(totalSeconds);
   const [preCount,setPreCount]=useState(3);
-  const [timerPhase,setTimerPhase]=useState<TimerPhase>('ready');
+  const [timerPhase,setTimerPhase]=useState<TimerPhase>('pre');
   const [resumePhase,setResumePhase]=useState<'pre'|'running'>('running');
+  const [advancing,setAdvancing]=useState(false);
   const turnRailRef=useRef<HTMLDivElement>(null);
   const turnItemRefs=useRef<Array<HTMLDivElement|null>>([]);
   const currentSpeaker=orderedPlayers[speakerIndex];
@@ -51,7 +52,7 @@ export const ClueRoundView: React.FC<Props> = ({ players, activeModifier, roundN
 
   const begin=()=>{setPreCount(3);setTimeLeft(totalSeconds);setTimerPhase('pre');};
   const togglePause=()=>{if(timerPhase==='paused')setTimerPhase(resumePhase);else if(timerPhase==='pre'||timerPhase==='running'){setResumePhase(timerPhase);setTimerPhase('paused');}};
-  const next=()=>{if(currentSpeaker&&!completedIds.includes(currentSpeaker.id))setCompletedIds(ids=>[...ids,currentSpeaker.id]);if(speakerIndex<orderedPlayers.length-1){setSpeakerIndex(index=>index+1);setTimeLeft(totalSeconds);setPreCount(3);setTimerPhase(preTimerEverySpeaker?'pre':'running');playWhoosh();}else setTimerPhase('ready');};
+  const next=()=>{if(advancing)return;setAdvancing(true);window.setTimeout(()=>setAdvancing(false),450);if(currentSpeaker&&!completedIds.includes(currentSpeaker.id))setCompletedIds(ids=>[...ids,currentSpeaker.id]);if(speakerIndex<orderedPlayers.length-1){setSpeakerIndex(index=>index+1);setTimeLeft(totalSeconds);setPreCount(3);setTimerPhase(preTimerEverySpeaker?'pre':'running');playWhoosh();}else setTimerPhase('ready');};
   const reshuffle=()=>{setOrderedPlayers(fairOrder(players,roundNumber+1));setSpeakerIndex(0);setCompletedIds([]);setTimeLeft(totalSeconds);setPreCount(3);setTimerPhase('ready');triggerHaptic([25,20,30]);};
   const progress=useMemo(()=>orderedPlayers.length?completedIds.length/orderedPlayers.length:0,[completedIds.length,orderedPlayers.length]);
 
@@ -65,7 +66,7 @@ export const ClueRoundView: React.FC<Props> = ({ players, activeModifier, roundN
         {timerPhase==='pre'&&<><p className="cipher-eyebrow">Get ready</p><strong>{preCount||'GO'}</strong></>}
         {(timerPhase==='running'||timerPhase==='paused'||timerPhase==='timeup')&&<><p className="cipher-eyebrow">{timerPhase==='paused'?'Paused':timerPhase==='timeup'?'Time':'Clue timer'}</p><strong>{timerPhase==='timeup'?'TIME':String(timeLeft).padStart(2,'0')}</strong><div className="timer-progress" style={{'--timer-progress':`${Math.max(0,timeLeft/totalSeconds)*100}%`} as React.CSSProperties}/><div className="mt-4 flex justify-center gap-2"><button onClick={togglePause} className="cipher-button-secondary px-4">{timerPhase==='paused'?<Play className="h-4 w-4"/>:<Pause className="h-4 w-4"/>}{timerPhase==='paused'?'Resume':'Pause'}</button><button onClick={begin} className="cipher-icon-button" aria-label="Restart countdown"><RotateCcw className="h-4 w-4"/></button></div></>}
       </div>
-      <button onClick={next} disabled={allSpoken} className="cipher-button-primary mt-4 w-full disabled:opacity-30">{speakerIndex===orderedPlayers.length-1?'Finish clue round':'Clue given · next speaker'}<ChevronRight className="h-4 w-4"/></button>
+      <button onClick={next} disabled={allSpoken||advancing} className="cipher-button-primary mt-4 w-full disabled:opacity-30">{speakerIndex===orderedPlayers.length-1?'Finish clue round':'Clue given · next speaker'}<ChevronRight className="h-4 w-4"/></button>
       <div className="mt-auto pt-5"><p className="cipher-eyebrow mb-2">Speaking order</p><div ref={turnRailRef} className="turn-rail" aria-label="Speaking order">{orderedPlayers.map((player,index)=><div ref={element=>{turnItemRefs.current[index]=element;}} key={player.id} className={`${index===speakerIndex?'active':''} ${completedIds.includes(player.id)?'done':''}`}><span>{String(index+1).padStart(2,'0')}</span>{player.name}</div>)}</div><div className="turn-progress mt-2"><span style={{width:`${progress*100}%`}}/></div></div>
     </section>
     {allSpoken&&<div className="fixed bottom-0 left-0 right-0 z-30 border-t-2 border-[var(--ink)] bg-[var(--canvas)] p-3"><button className="cipher-button-primary mx-auto flex w-full max-w-lg" onClick={onProceedToVoting}><Vote className="h-4 w-4"/>Open voting</button></div>}

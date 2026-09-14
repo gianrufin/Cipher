@@ -95,6 +95,8 @@ export class CipherPeerRoom {
 
   broadcast(data: unknown) { this.channels.forEach((_, peerId) => this.send(peerId, data)); }
 
+  disconnect(peerId: string) { this.removePeer(peerId); }
+
   close() {
     this.channels.forEach(channel => channel.close());
     this.peers.forEach(peer => peer.close());
