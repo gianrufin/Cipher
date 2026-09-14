@@ -548,6 +548,15 @@ input:focus-visible {
 .font-display.text-5xl.font-black.text-rose-300 { color: var(--ink) !important; }
 .reveal-hold { position: relative; display: flex; min-height: 78px; align-items: center; justify-content: center; gap: 12px; overflow: hidden; border: 3px solid var(--ink); border-radius: 99px; background: var(--paper); color: var(--ink); box-shadow: 5px 5px 0 var(--ink); font-size: 14px; font-weight: 900; }
 .reveal-hold-fill { position: absolute; inset: 0; transform-origin: left; background: var(--coral); }
+.reveal-hold-capture { position:fixed; inset:0; z-index:60; display:block; width:100%; height:100%; border:0; background:transparent; color:transparent; touch-action:none; user-select:none; -webkit-user-select:none; }
+.role-emphasis { position:relative; display:inline-block; font:900 clamp(40px,12vw,58px) 'Bricolage Grotesque',sans-serif; line-height:.9; letter-spacing:-.045em; text-transform:uppercase; }
+.role-emphasis::after { position:absolute; right:2%; bottom:-8px; left:2%; height:5px; background:currentColor; content:''; transform:rotate(-1.5deg); opacity:.8; }
+.secret-word-focus { position:relative; border:3px solid currentColor; padding:22px 16px 24px; background:color-mix(in srgb,var(--paper) 92%,transparent); text-align:center; box-shadow:7px 7px 0 color-mix(in srgb,currentColor 22%,transparent); }
+.secret-word-focus::before,.secret-word-focus::after { position:absolute; width:18px; height:18px; content:''; }
+.secret-word-focus::before { top:7px; left:7px; border-top:3px solid currentColor; border-left:3px solid currentColor; }
+.secret-word-focus::after { right:7px; bottom:7px; border-right:3px solid currentColor; border-bottom:3px solid currentColor; }
+.secret-word-focus small { display:block; font:800 9px 'JetBrains Mono',monospace; letter-spacing:.16em; text-transform:uppercase; opacity:.6; }
+.secret-word-focus p { margin-top:10px; overflow-wrap:anywhere; font:900 clamp(46px,14vw,68px) 'Bricolage Grotesque',sans-serif; line-height:.9; letter-spacing:-.055em; }
 .reveal-confirm, .vote-confirmation { border: 3px solid var(--ink); border-radius: 5px; padding: 20px; background: var(--paper); color: var(--ink); box-shadow: 6px 6px 0 var(--ink); text-align: left; }
 .reveal-confirm p { margin-top: 6px; font-size: 13px; color: var(--muted); }
 .private-note { margin-bottom: 12px; border-left: 5px solid currentColor; padding: 12px 14px; background: color-mix(in srgb, currentColor 8%, transparent); font-size: 13px; }
