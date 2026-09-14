@@ -22,6 +22,7 @@ export type OnlinePlayerState = OnlineProfile & { eliminated: boolean; score: nu
 export type OnlinePhase = 'lobby' | 'reveal' | 'clues' | 'voting' | 'vote_ready' | 'ejection' | 'bodyguard' | 'counterplay' | 'results';
 
 export type OnlinePublicState = {
+  matchId: string;
   phase: OnlinePhase;
   round: number;
   categoryName: string;
@@ -109,6 +110,7 @@ export const createOnlineAssignments = (
 };
 
 export const buildInitialOnlineState = (profiles: OnlineProfile[], categoryName: string, allowSkip: boolean): OnlinePublicState => ({
+  matchId: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
   phase: 'reveal', round: 1, categoryName, speakerIndex: 0, readyIds: [], votedIds: [],
   allowSkip,
   players: profiles.map(profile => ({ ...profile, eliminated: false, score: 0 }))

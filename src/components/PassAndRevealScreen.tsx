@@ -156,7 +156,7 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
                 >
                   <span className="reveal-hold-fill" style={{ transform: `scaleX(${holdProgress / 100})` }} />
                   <Fingerprint className="relative h-6 w-6" />
-                  <span className="relative">{isReplacing ? 'Finding a fresh word…' : holdProgress ? 'Keep holding…' : hasViewed ? 'Hold to peek again' : 'Press and hold to view'}</span>
+                  <span className="relative">{isReplacing ? 'Finding a fresh word…' : holdProgress ? 'Keep holding · slide if needed' : hasViewed ? 'Hold to peek again' : 'Press and hold to view'}</span>
                 </button>
                 {canFlagRepeat && <button className="cipher-text-button mx-auto mt-4" onClick={() => setConfirmReplace(true)}>Seen this word before?</button>}
                 {repeatError && <p className="mt-4 text-sm font-bold text-[var(--coral)]">{repeatError}</p>}

@@ -150,6 +150,27 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', protectMatch);
   }, [localMatchActive]);
 
+  useEffect(() => {
+    history.replaceState({ ...(history.state || {}), cipherRoot: true }, '');
+    history.pushState({ cipherGuard: true }, '');
+  }, []);
+
+  useEffect(() => {
+    const handleBack = () => {
+      history.pushState({ cipherGuard: true }, '');
+      if (isSettingsOpen) { setIsSettingsOpen(false); return; }
+      if (isRoleArchiveOpen) { setIsRoleArchiveOpen(false); return; }
+      if (isRulesOpen) { setIsRulesOpen(false); return; }
+      if (isCustomModalOpen) { setIsCustomModalOpen(false); return; }
+      if (isRestartOpen) { setIsRestartOpen(false); return; }
+      if (phase === 'online_room') { window.dispatchEvent(new Event('cipher-back')); return; }
+      if (localMatchActive) { setIsSettingsOpen(true); return; }
+      if (phase === 'setup' || phase === 'crew_select' || phase === 'game_stats' || phase === 'onboarding') setPhase('mode_select');
+    };
+    window.addEventListener('popstate', handleBack);
+    return () => window.removeEventListener('popstate', handleBack);
+  }, [phase, localMatchActive, isSettingsOpen, isRoleArchiveOpen, isRulesOpen, isCustomModalOpen, isRestartOpen]);
+
   useEffect(()=>{
     const active=!['onboarding','mode_select','crew_select','online_room','setup','game_stats'].includes(phase);
     if(!active||!players.length)return;
@@ -476,7 +497,10 @@ export default function App() {
         'cipher_haptics',
         'cipher_timer_seconds',
         'cipher_has_completed_onboarding',
-        'cipher_theme'
+        'cipher_theme',
+        'cipher_live_leaderboard_v1',
+        'cipher_live_host_session_v1',
+        'cipher_live_name'
       ].forEach(key => localStorage.removeItem(key));
     } catch {
       // ignore
@@ -545,6 +569,24 @@ export default function App() {
   const handleEditSetup = () => {
     setIsRestartOpen(false);
     handleResetToSetup();
+  };
+
+  const handleStartNewGame = () => {
+    window.dispatchEvent(new Event('cipher-new-game'));
+    const cleanUrl = new URL(location.href);
+    cleanUrl.searchParams.delete('room');
+    cleanUrl.searchParams.delete('host');
+    history.replaceState({ cipherGuard: true }, '', cleanUrl);
+    localStorage.removeItem(MATCH_SNAPSHOT_KEY);
+    setRecovery(undefined);
+    setIsSettingsOpen(false);
+    setPlayers([]);
+    setPassIndex(0);
+    setEliminatedPlayer(null);
+    setPendingElimination(null);
+    setEliminationQueue([]);
+    setMatchSummary(null);
+    setPhase('mode_select');
   };
 
   return (
@@ -704,6 +746,7 @@ export default function App() {
           onRoleArchive={() => { setIsSettingsOpen(false); setIsRoleArchiveOpen(true); }}
           onReplayOnboarding={() => { setIsSettingsOpen(false); setPhase('onboarding'); }}
           onResetApp={handleResetAllData}
+          onStartNewGame={handleStartNewGame}
           onRestartMatch={!['mode_select', 'setup', 'game_stats', 'onboarding', 'online_room'].includes(phase) ? () => { setIsSettingsOpen(false); setIsRestartOpen(true); } : undefined}
         />
       )}
