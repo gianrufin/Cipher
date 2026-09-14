@@ -120,6 +120,25 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
     }
   };
 
+  const holdControl = !confirmReplace ? (
+    <button
+      key="private-hold-control"
+      type="button"
+      onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); startHold(); }}
+      onPointerUp={conceal}
+      onPointerCancel={conceal}
+      onContextMenu={event => event.preventDefault()}
+      className={isRevealed ? 'reveal-hold-capture touch-none' : 'reveal-hold mt-9 touch-none'}
+      aria-label={isRevealed ? 'Keep holding. Release anywhere to hide.' : 'Press and hold to view your private word'}
+    >
+      {!isRevealed && <>
+        <span className="reveal-hold-fill" style={{ transform: `scaleX(${holdProgress / 100})` }} />
+        <Fingerprint className="relative h-6 w-6" />
+        <span className="relative">{isReplacing ? 'Finding a fresh word…' : holdProgress ? 'Keep holding · slide if needed' : hasViewed ? 'Hold to peek again' : 'Press and hold to view'}</span>
+      </>}
+    </button>
+  ) : null;
+
   return (
     <div className={`reveal-stage ${isRevealed ? 'reveal-neutral' : ''}`}>
       <div className="mx-auto flex min-h-[calc(100svh-72px)] w-full max-w-lg flex-col px-5 pb-7 pt-5">
@@ -135,7 +154,7 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
             <h1 className="mt-2 font-display text-5xl font-black tracking-[-.05em]">Pass to {currentPlayer.name}</h1>
             <p className="mx-auto mt-3 max-w-xs text-sm opacity-70">Shield the screen. Your secret stays visible only while you keep holding.</p>
 
-            {confirmReplace ? (
+            {confirmReplace && (
               <div className="reveal-confirm mt-8">
                 <strong>Replace it for the whole group?</strong>
                 <p>Nobody else has seen this round’s word.</p>
@@ -144,40 +163,27 @@ export const PassAndRevealScreen: React.FC<PassAndRevealScreenProps> = ({
                   <button onClick={() => setConfirmReplace(false)} className="cipher-button-secondary">Keep it</button>
                 </div>
               </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); startHold(); }}
-                  onPointerUp={conceal}
-                  onPointerCancel={conceal}
-                  onContextMenu={event => event.preventDefault()}
-                  className="reveal-hold mt-9 touch-none"
-                >
-                  <span className="reveal-hold-fill" style={{ transform: `scaleX(${holdProgress / 100})` }} />
-                  <Fingerprint className="relative h-6 w-6" />
-                  <span className="relative">{isReplacing ? 'Finding a fresh word…' : holdProgress ? 'Keep holding · slide if needed' : hasViewed ? 'Hold to peek again' : 'Press and hold to view'}</span>
-                </button>
-                {canFlagRepeat && <button className="cipher-text-button mx-auto mt-4" onClick={() => setConfirmReplace(true)}>Seen this word before?</button>}
-                {repeatError && <p className="mt-4 text-sm font-bold text-[var(--coral)]">{repeatError}</p>}
-                {hasViewed && <button type="button" onClick={proceed} className="cipher-button-primary mt-6 w-full">Done, pass the phone <ArrowRight className="h-4 w-4" /></button>}
-              </>
             )}
+            {holdControl}
+            {!confirmReplace && canFlagRepeat && <button className="cipher-text-button mx-auto mt-4" onClick={() => setConfirmReplace(true)}>Seen this word before?</button>}
+            {!confirmReplace && repeatError && <p className="mt-4 text-sm font-bold text-[var(--coral)]">{repeatError}</p>}
+            {!confirmReplace && hasViewed && <button type="button" onClick={proceed} className="cipher-button-primary mt-6 w-full">Done, pass the phone <ArrowRight className="h-4 w-4" /></button>}
           </section>
         ) : (
           <section className="flex flex-1 select-none flex-col justify-center" aria-live="assertive">
             <div className="flex items-center justify-between">
-              <div><p className="cipher-eyebrow">{briefing.team}</p><h1 className="mt-2 font-display text-5xl font-black">{briefing.label}</h1></div>
+              <div><p className="cipher-eyebrow">{briefing.team}</p><h1 className="role-emphasis mt-2">{briefing.label}</h1></div>
               <RoleIcon className="h-10 w-10" />
             </div>
-            <div className="my-10">
-              <p className="text-xs font-black uppercase tracking-[.16em] opacity-60">{word === 'NO WORD' ? 'Blind status' : currentPlayer.role === 'imposter' ? 'Decoy word' : 'Your word'}</p>
-              <p className="mt-3 break-words font-display text-6xl font-black leading-none tracking-[-.06em]">{word}</p>
+            <div className="secret-word-focus my-10">
+              <small>{word === 'NO WORD' ? 'Blind status' : currentPlayer.role === 'imposter' ? 'Decoy word' : 'Your word'}</small>
+              <p>{word}</p>
             </div>
             {currentPlayer.intel && <p className="private-note">{currentPlayer.intel}</p>}
             {currentPlayer.role === 'imposter' && accomplicesAware && fellowImposters.length > 0 && <p className="private-note">Known accomplices: <strong>{fellowImposters.map(player => player.name).join(', ')}</strong></p>}
             <p className="max-w-md text-base font-semibold leading-7">{briefing.mission}</p>
             <div className="mt-10 flex items-center justify-center gap-2 text-sm font-black"><EyeOff className="h-5 w-5" /> Release to hide</div>
+            {holdControl}
           </section>
         )}
       </div>
