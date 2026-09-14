@@ -647,6 +647,18 @@ footer[class*='bg-'] { background: var(--paper) !important; }
 .support-card h2 { font:900 22px 'Bricolage Grotesque',sans-serif; }
 .support-card small { display:block; margin-top:12px; color:var(--muted); font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .support-card img { width:112px; aspect-ratio:1; object-fit:contain; border:1px solid var(--line); background:white; padding:5px; }
+.invite-overlay { position:fixed; inset:0; z-index:1200; display:flex; align-items:flex-end; justify-content:center; background:rgba(4,8,15,.78); }
+.invite-sheet { width:100%; max-width:520px; max-height:100dvh; overflow-y:auto; border:2px solid var(--ink); border-bottom:0; background:var(--canvas); color:var(--ink); }
+.invite-sheet>header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid var(--ink); padding:14px 18px; background:var(--canvas); }
+.invite-sheet h2 { margin-top:2px; font:900 26px 'Bricolage Grotesque',sans-serif; }
+.invite-body { display:grid; gap:14px; padding:18px 18px max(24px,env(safe-area-inset-bottom)); text-align:center; }
+.invite-body>img { width:min(72vw,300px); aspect-ratio:1; justify-self:center; border:2px solid var(--ink); background:#fff; padding:8px; }
+.invite-code { display:flex; align-items:center; justify-content:space-between; border-block:1px solid var(--line); padding:12px 0; text-align:left; }
+.invite-code small,.invite-help { color:var(--muted); font-size:10px; line-height:1.5; }
+.invite-code strong { font:900 24px 'JetBrains Mono',monospace; letter-spacing:.16em; }
+.invite-avatars { display:flex; min-height:40px; justify-content:center; }
+.invite-avatars>*+* { margin-left:-7px; }
+button { touch-action:manipulation; }
 
 @media (max-height: 700px) {
   .parlor-title { font-size: clamp(42px,13vw,62px); }
@@ -663,4 +675,9 @@ footer[class*='bg-'] { background: var(--paper) !important; }
   .share-studio-body { display:grid; grid-template-columns:1.05fr .95fr; }
   .share-preview { max-height:none; }
   .share-preview canvas { max-height:64dvh; }
+}
+
+@media (min-width: 560px) { .invite-overlay { align-items:center; padding:20px; } .invite-sheet { max-height:calc(100dvh - 40px); border-bottom:2px solid var(--ink); } }
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
 }

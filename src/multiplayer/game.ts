@@ -19,7 +19,7 @@ export type OnlineAssignment = {
 };
 
 export type OnlinePlayerState = OnlineProfile & { eliminated: boolean; score: number };
-export type OnlinePhase = 'lobby' | 'reveal' | 'clues' | 'voting' | 'ejection' | 'bodyguard' | 'counterplay' | 'results';
+export type OnlinePhase = 'lobby' | 'reveal' | 'clues' | 'voting' | 'vote_ready' | 'ejection' | 'bodyguard' | 'counterplay' | 'results';
 
 export type OnlinePublicState = {
   phase: OnlinePhase;
@@ -27,6 +27,9 @@ export type OnlinePublicState = {
   categoryName: string;
   players: OnlinePlayerState[];
   speakerIndex: number;
+  clueStartedAt?: number;
+  clueDuration?: number;
+  cluePreSeconds?: number;
   readyIds: string[];
   votedIds: string[];
   runoffCandidateIds?: string[];
@@ -43,12 +46,15 @@ export type OnlineRoomMessage =
   | { type: 'match-state'; state: OnlinePublicState }
   | { type: 'private-assignment'; assignment: OnlineAssignment }
   | { type: 'ready'; playerId: string }
+  | { type: 'clue-start'; playerId: string }
   | { type: 'clue-done'; playerId: string }
   | { type: 'vote'; voterId: string; targetId?: string }
+  | { type: 'resolve-votes'; playerId: string }
   | { type: 'bodyguard-choice'; playerId: string; targetId: string; pardon: boolean }
   | { type: 'counter-inspector'; playerId: string; targetId: string }
   | { type: 'counter-word'; playerId: string; word: string }
   | { type: 'private-prompt'; prompt: 'bodyguard' | 'inspector' | 'word'; targetId?: string }
+  | { type: 'room-error'; message: string }
   | { type: 'room-closed' };
 
 const shuffled = <T,>(items: T[]) => {
