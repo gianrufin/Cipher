@@ -578,8 +578,7 @@ footer[class*='bg-'] { background: var(--paper) !important; }
 .setup-roster-grid>div { min-width:0; padding:10px; }
 .setup-player-card { display:grid; grid-template-columns:auto auto minmax(0,1fr) auto; align-items:center; gap:10px; }
 .setup-photo-button { position:relative; display:grid; width:48px; height:48px; place-items:center; border-radius:50%; }
-.setup-photo-button>span { position:absolute; right:-3px; bottom:-3px; display:grid; width:21px; height:21px; place-items:center; border:2px solid var(--canvas); border-radius:50%; background:var(--coral); color:#152238; }
-.setup-photo-button.has-photo>span { background:var(--lime); }
+.setup-photo-button > .setup-camera-badge { position:absolute; right:-3px; bottom:-3px; display:grid; width:21px; height:21px; place-items:center; border:2px solid var(--canvas); border-radius:50%; background:var(--coral); color:#152238; }
 .crew-member { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 8px; border: 2px solid var(--line); padding: 10px 12px; background: var(--paper); font-size: 13px; font-weight: 800; }
 .crew-member.active { border-color: var(--ink); background: var(--lime); color: #111; }
 .crew-code { display: flex; align-items: center; gap: 7px; border: 2px solid var(--ink); padding: 8px 10px; background: var(--paper); font: 800 11px 'JetBrains Mono',monospace; letter-spacing: .12em; }

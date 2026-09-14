@@ -382,7 +382,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
                 <div key={name} className="setup-player-card rounded-2xl border border-white/[0.08] bg-white/[0.025] px-3 py-3">
                   <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
                   <button type="button" onClick={() => playerPhotos[index] ? setRetakePlayerIndex(index) : setSelfiePlayerIndex(index)} className={`setup-photo-button ${playerPhotos[index] ? 'has-photo' : ''}`} aria-label={`${playerPhotos[index] ? 'Retake' : 'Add'} optional photo for ${name}`} title={playerPhotos[index] ? 'View or retake photo' : 'Add optional photo'}>
-                    <PlayerAvatar name={name} src={playerPhotos[index]} className="h-12 w-12 border border-white/10 text-xs" />{!playerPhotos[index] && <span><Camera className="h-3 w-3" /></span>}
+                    <PlayerAvatar name={name} src={playerPhotos[index]} className="h-12 w-12 border border-white/10 text-xs" />{!playerPhotos[index] && <span className="setup-camera-badge"><Camera className="h-3 w-3" /></span>}
                   </button>
                   <span className="min-w-0 flex-1 truncate text-sm font-bold text-stone-200">{name}</span>
                   <button type="button" onClick={() => removePlayer(index)} aria-label={`Remove ${name}`} className="text-stone-600 hover:text-[#ff6846]">
