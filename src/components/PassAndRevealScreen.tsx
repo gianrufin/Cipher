@@ -21,7 +21,7 @@ const ROLE_BRIEF: Record<RoleType, { label: string; team: string; mission: strin
   imposter: { label: 'Imposter', team: 'Imposter team', mission: 'Blend in, decode the real word, and survive the vote.', accent: 'coral' },
   inspector: { label: 'Inspector', team: 'Citizen team', mission: 'Exactly one player in your Signal Sweep is an Imposter. Read their clues and steer the table without exposing yourself.', accent: 'cobalt' },
   sleeper: { label: 'Sleeper Agent', team: 'Imposter ally', mission: 'You know the Citizen word, but you win with the Imposters.', accent: 'violet' },
-  anarchist: { label: 'Wild Card', team: 'Neutral', mission: 'Convince the table to eject you first.', accent: 'yellow' },
+  anarchist: { label: 'Wild Card', team: 'Independent / Rogue', mission: 'Bait the table into ejecting you first for a solo win. If someone else is ejected first, your solo heist expires and you pivot to the Citizen team to help hunt the Imposters.', accent: 'yellow' },
   bodyguard: { label: 'Bodyguard', team: 'Citizen team', mission: 'You may protect another Citizen once.', accent: 'lime' }
 };
 

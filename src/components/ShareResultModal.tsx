@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Download, Share2, X } from 'lucide-react';
 import { MatchSummary, Player, PlayerCareerStats } from '../types';
+import { generateMatchRoastReel } from '../utils/roastEngine';
 
-type Layout = 'victory' | 'leaderboard';
+type Layout = 'victory' | 'leaderboard' | 'roast';
 type Background = 'cipher' | 'transparent';
 type Size = 'story' | 'feed' | 'square';
 
@@ -54,7 +55,7 @@ export const ShareResultModal: React.FC<Props> = ({ isOpen, onClose, players, ma
   return createPortal(<div className="share-overlay" role="dialog" aria-modal="true" aria-label="Share match result"><div className="share-studio">
     <header className="share-studio-header"><div><p className="cipher-kicker">Match result</p><h2>Share your game</h2></div><button onClick={onClose} className="share-close" aria-label="Close share screen"><X className="h-5 w-5" /></button></header>
     <div className="share-studio-body"><div className={`share-preview ${background === 'transparent' ? 'transparent' : ''}`}><canvas ref={canvasRef} /></div><div className="share-controls">
-      <div className="share-control-grid"><Tabs label="Card" value={layout} onChange={value => setLayout(value as Layout)} options={[["victory", "Summary"], ["leaderboard", "Leaderboard"]]} /><Tabs label="Format" value={size} onChange={value => setSize(value as Size)} options={[["feed", "Feed"], ["story", "Story"], ["square", "Square"]]} /></div>
+      <div className="share-control-grid"><Tabs label="Card" value={layout} onChange={value => setLayout(value as Layout)} options={[["victory", "Summary"], ["roast", "Roast Reel"], ["leaderboard", "Leaderboard"]]} /><Tabs label="Format" value={size} onChange={value => setSize(value as Size)} options={[["feed", "Feed"], ["story", "Story"], ["square", "Square"]]} /></div>
       <Tabs label="Background" value={background} onChange={value => setBackground(value as Background)} options={[["cipher", "Cipher"], ["transparent", "Transparent"]]} />
       <div><p className="cipher-kicker mb-2">Include</p><div className="share-options"><Toggle label="Names" checked={showNames} onChange={setShowNames} /><Toggle label="Roles" checked={showRoles} onChange={setShowRoles} /><Toggle label="Words" checked={showWords} onChange={setShowWords} /></div></div>
     </div></div>
@@ -88,6 +89,16 @@ function drawCard(context: CanvasRenderingContext2D, width: number, height: numb
   if (options.layout === 'victory') {
     const mvp = scores[0]; context.fillStyle = coral; context.font = '800 17px JetBrains Mono'; context.fillText('TOP PLAYER', 68, statsTop + 205); context.fillStyle = ink; context.font = '900 70px Bricolage Grotesque'; context.fillText(mvp ? safeName(mvp.name) : 'THE TABLE', 68, statsTop + 244);
     if (mvp) { context.fillStyle = muted; context.font = '800 25px JetBrains Mono'; context.fillText(`${mvp.points} POINTS`, 70, statsTop + 330); } scores.slice(1, 4).forEach((score, index) => drawRank(context, 68, statsTop + 410 + index * 78, width - 136, index + 2, safeName(score.name), score.points, ink, muted, false));
+  } else if (options.layout === 'roast') {
+    const reel = generateMatchRoastReel(options.players, options.matchSummary, options.trueCitizenWord, options.decoyWord);
+    context.fillStyle = coral; context.font = '800 18px JetBrains Mono'; context.fillText(`ROAST REEL · ${reel.vibeTag}`, 68, statsTop + 180);
+    reel.awards.slice(0, 3).forEach((award, index) => {
+      const y = statsTop + 220 + index * 140;
+      context.strokeStyle = 'rgba(101,112,131,.25)'; context.lineWidth = 2; line(context, 68, y + 120, width - 68, y + 120);
+      context.fillStyle = coral; context.font = '800 15px JetBrains Mono'; context.fillText(award.badge, 68, y);
+      context.fillStyle = ink; context.font = '900 32px Bricolage Grotesque'; context.fillText(`${award.title} · ${safeName(award.playerName)}`, 68, y + 26);
+      context.fillStyle = muted; context.font = '700 16px JetBrains Mono'; context.fillText(`"${award.headline}"`, 68, y + 68);
+    });
   } else scores.slice(0, 6).forEach((score, index) => drawRank(context, 68, statsTop + 192 + index * 94, width - 136, index + 1, safeName(score.name), score.points, ink, muted, options.showRoles, ROLE_LABEL[score.role] || score.role));
   const footerTop = height - 176; context.strokeStyle = ink; context.lineWidth = 3; line(context, 64, footerTop, width - 64, footerTop); context.fillStyle = muted; context.font = '800 16px JetBrains Mono'; context.fillText(options.showWords ? 'THE WORDS' : 'CATEGORY', 68, footerTop + 30); context.fillStyle = ink; context.font = '900 34px Bricolage Grotesque'; context.fillText(options.showWords ? `${options.trueCitizenWord} / ${options.decoyWord || options.categoryName}` : options.categoryName, 68, footerTop + 66);
 }

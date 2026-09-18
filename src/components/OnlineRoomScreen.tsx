@@ -10,6 +10,7 @@ import { SelfieCaptureModal } from './SelfieCaptureModal';
 import { selectCrewPair } from '../utils/crewSync';
 import { CrewProfile } from '../types';
 import { getDailyDeck } from '../utils/wordHistory';
+import { createCategoryDailyDeck, getCategoryDailyDeckLabel } from '../utils/dailyCategoryEngine';
 import { playCountdown, playTick } from '../utils/soundEffects';
 import { getRoleDefinition } from '../data/roleCatalog';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -19,7 +20,7 @@ const ROLE_COPY: Record<OnlineAssignment['role'], string> = {
   citizen: 'Find and eject every Imposter.', decoy: 'You are a Citizen, but your word is the alternate word.',
   imposter: 'Blend in, survive, and decode the Citizen word.', inspector: 'Exactly one of your three Signal Sweep seats is an Imposter. Read their clues and steer the table.',
   bodyguard: 'You may pardon one innocent ejection.', sleeper: 'You know the Citizen word, but secretly help the Imposters.',
-  anarchist: `${getRoleDefinition('anarchist').name}: bait the table into ejecting you first.`
+  anarchist: `${getRoleDefinition('anarchist').name}: bait the table into ejecting you first. If someone else is ejected first, pivot to the Citizen team.`
 };
 
 const defaultSettings: OnlineSettings = { imposters: 1, decoys: 0, ejectionReveal: 'confirm', allowSkip: true, eliminations: 1, categoryId: 'variety' };
@@ -139,7 +140,7 @@ export const OnlineRoomScreen = ({ onBack, initialCrew }: { onBack: () => void; 
     const living = current.players.filter(player => !player.eliminated);
     const livingImposters = living.filter(player => assignmentsRef.current.get(player.id)?.role === 'imposter');
     const bad = living.filter(player => ['imposter', 'sleeper'].includes(assignmentsRef.current.get(player.id)?.role || 'citizen'));
-    const citizens = living.filter(player => ['citizen', 'decoy', 'inspector', 'bodyguard'].includes(assignmentsRef.current.get(player.id)?.role || 'citizen'));
+    const citizens = living.filter(player => ['citizen', 'decoy', 'inspector', 'bodyguard', 'anarchist'].includes(assignmentsRef.current.get(player.id)?.role || 'citizen'));
     if (!livingImposters.length) {
       const lastImposter = current.players.find(player => player.id === current.ejectedId && assignmentsRef.current.get(player.id)?.role === 'imposter');
       if (!lastImposter) { finishMatch('citizens', 'Every Imposter was ejected.'); return; }
@@ -158,13 +159,16 @@ export const OnlineRoomScreen = ({ onBack, initialCrew }: { onBack: () => void; 
     const target = current.players.find(player => player.id === targetId); if (!target) return;
     const targetRole = assignmentsRef.current.get(targetId)?.role;
     const nextPlayers = current.players.map(player => player.id === targetId ? { ...player, eliminated: true } : player);
-    if (targetRole === 'anarchist' && ejectionPositionRef.current === 0) {
-      publishState({ ...current, players: nextPlayers, ejectedId: targetId, ejectionText: `${target.name} was the Wild Card.`, phase: 'ejection' });
-      finishMatch('anarchist', `${target.name} baited the table into an ejection and wins alone.`); return;
+    const totalPriorEliminations = current.players.filter(player => player.eliminated && player.id !== targetId).length;
+    if (targetRole === 'anarchist' && ejectionPositionRef.current === 0 && totalPriorEliminations === 0) {
+      publishState({ ...current, players: nextPlayers, ejectedId: targetId, ejectionText: `${target.name} was the Wild Card and pulled off the solo heist!`, phase: 'ejection' });
+      finishMatch('anarchist', `${target.name} baited the table into the first ejection and wins alone.`); return;
     }
     const remaining = nextPlayers.filter(player => !player.eliminated && assignmentsRef.current.get(player.id)?.role === 'imposter').length;
     const ejectionText = settings.ejectionReveal === 'confirm'
-      ? `${target.name} was ${targetRole === 'imposter' ? 'an Imposter' : 'not an Imposter'}. ${remaining} Imposter${remaining === 1 ? '' : 's'} remaining.`
+      ? targetRole === 'anarchist'
+        ? `${target.name} was the Wild Card (Rogue Citizen). ${remaining} Imposter${remaining === 1 ? '' : 's'} remaining.`
+        : `${target.name} was ${targetRole === 'imposter' ? 'an Imposter' : 'not an Imposter'}. ${remaining} Imposter${remaining === 1 ? '' : 's'} remaining.`
       : `${target.name} was ejected. Their identity remains classified.`;
     publishState({ ...current, players: nextPlayers, phase: 'ejection', ejectedId: targetId, ejectionText, votedIds: [] });
   };
@@ -298,9 +302,23 @@ export const OnlineRoomScreen = ({ onBack, initialCrew }: { onBack: () => void; 
   const startMatch = async () => {
     const connected = rosterRef.current.filter(profile => profile.connected);
     if (connected.length < 4) { setNotice(`${4 - connected.length} more player${4 - connected.length === 1 ? '' : 's'} needed.`); return; }
-    const category = settings.categoryId === 'variety'
-      ? { id: 'variety', name: 'Daily Deck', iconName: 'Sparkles', description: 'A fresh Philippine-time rotation.', pairs: getDailyDeck([...BUILT_IN_CATEGORIES,DAILY_VAULT_CATEGORY].flatMap(item => item.pairs.filter(pair => pair.difficulty === 'easy'))) }
-      : [...BUILT_IN_CATEGORIES,DAILY_VAULT_CATEGORY].find(item => item.id === settings.categoryId) || BUILT_IN_CATEGORIES[0];
+    const category = (() => {
+      if (settings.categoryId === 'variety') {
+        return {
+          id: 'variety',
+          name: `Daily Deck · ${getCategoryDailyDeckLabel()}`,
+          iconName: 'Sparkles',
+          description: 'A fresh Philippine-time rotation.',
+          pairs: getDailyDeck([...BUILT_IN_CATEGORIES, DAILY_VAULT_CATEGORY].flatMap(item => item.pairs.filter(pair => pair.difficulty === 'easy')), 20)
+        };
+      }
+      if (settings.categoryId.endsWith('_daily')) {
+        const baseId = settings.categoryId.replace('_daily', '');
+        const base = [...BUILT_IN_CATEGORIES, DAILY_VAULT_CATEGORY].find(item => item.id === baseId) || BUILT_IN_CATEGORIES[0];
+        return createCategoryDailyDeck(base);
+      }
+      return [...BUILT_IN_CATEGORIES, DAILY_VAULT_CATEGORY].find(item => item.id === settings.categoryId) || BUILT_IN_CATEGORIES[0];
+    })();
     const easyPairs = category.pairs.filter(pair => pair.difficulty === 'easy');
     let pair;
     try {
@@ -381,8 +399,8 @@ const Lobby = ({ role, roster, settings, setSettings, setupStep, setSetupStep, o
   return <div className="live-setup mt-6"><div className="setup-progress"><p className="cipher-kicker">Live setup · {setupStep+1} of 4</p><div>{[0,1,2,3].map(step=><span key={step} className={step<=setupStep?'active':''}/>)}</div></div><section className="cipher-panel mt-4 p-5"><h2 className="font-display text-3xl font-black text-stone-100">{titles[setupStep]}</h2>
     {setupStep===0&&<div className="mt-5">{rosterGrid}<button onClick={onInvite} className="cipher-button-secondary mt-4 w-full"><QrCode className="h-4 w-4"/>Invite more players</button><p className="mt-3 text-xs text-stone-500">{online<4?`${4-online} more player${4-online===1?'':'s'} needed to start.`:`${online} players are ready.`}</p></div>}
     {setupStep===1&&<div className="mt-5 space-y-4"><div className="grid grid-cols-2 gap-2"><SettingSelect label="Imposters" value={settings.imposters} values={[1,2,3]} onChange={value => setSettings(current => ({...current,imposters:Number(value) as 1|2|3}))}/><SettingSelect label="Decoys" value={settings.decoys} values={[0,1,2]} onChange={value => setSettings(current => ({...current,decoys:Number(value) as 0|1|2}))}/><SettingSelect label="Ejections" value={settings.eliminations} values={[1,2]} onChange={value => setSettings(current => ({...current,eliminations:Number(value) as 1|2}))}/><SettingSelect label="Reveal" value={settings.ejectionReveal} values={['confirm','classified']} onChange={value => setSettings(current => ({...current,ejectionReveal:value as 'confirm'|'classified'}))}/></div><label className="settings-row w-full"><span>Allow skip</span><input type="checkbox" checked={settings.allowSkip} onChange={event => setSettings(current => ({...current,allowSkip:event.target.checked}))}/></label></div>}
-    {setupStep===2&&<label className="mt-5 block text-xs text-stone-400">Easy word pack<select className="cipher-input mt-2 w-full" value={settings.categoryId} onChange={event => setSettings(current => ({...current,categoryId:event.target.value}))}><option value="variety">Variety Deck · 40 pairs</option>{BUILT_IN_CATEGORIES.filter(category => category.pairs.some(pair => pair.difficulty === 'easy')).map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select><p className="mt-3 leading-5 text-stone-500">Played-word history stays protected across rematches and crew sessions.</p></label>}
-    {setupStep===3&&<div className="mt-5 space-y-3"><div className="crew-ticket"><div><small>Players</small><strong>{online}</strong></div><div><small>Imposters</small><strong>{settings.imposters}</strong></div><div><small>Deck</small><strong>{settings.categoryId==='variety'?'Daily':BUILT_IN_CATEGORIES.find(category=>category.id===settings.categoryId)?.name||'Custom'}</strong></div></div><p className="text-xs leading-5 text-stone-500">{settings.eliminations} ejection{settings.eliminations===1?'':'s'} per vote · {settings.allowSkip?'skip allowed':'no skipping'} · {settings.ejectionReveal==='confirm'?'identity confirmed':'identity classified'}</p>{notice&&<p className="text-xs text-rose-300">{notice}</p>}</div>}
+    {setupStep===2&&<label className="mt-5 block text-xs text-stone-400">Word pack selection<select className="cipher-input mt-2 w-full" value={settings.categoryId} onChange={event => setSettings(current => ({...current,categoryId:event.target.value}))}><optgroup label={`☀️ Everyday Updates (${getCategoryDailyDeckLabel()} · 10 pairs)`}><option value="variety">Daily Variety Deck (All Topics)</option>{BUILT_IN_CATEGORIES.map(category => <option key={`${category.id}_daily`} value={`${category.id}_daily`}>{category.id === 'pinoy_everyday' ? "Pinoy Everyday (Tagalog) · Today's 10" : `${category.name} · Today's 10`}</option>)}</optgroup><optgroup label="📚 Full Vault Decks">{BUILT_IN_CATEGORIES.map(category => <option key={category.id} value={category.id}>{category.id === 'pinoy_everyday' ? "Pinoy Everyday (105 Tagalog pairs)" : `${category.name} (${category.pairs.length} pairs)`}</option>)}</optgroup></select><p className="mt-3 leading-5 text-stone-500">Everyday decks rotate fresh pairs daily in Philippine time with 0 repeated words. Played-word history stays protected across rematches.</p></label>}
+    {setupStep===3&&<div className="mt-5 space-y-3"><div className="crew-ticket"><div><small>Players</small><strong>{online}</strong></div><div><small>Imposters</small><strong>{settings.imposters}</strong></div><div><small>Deck</small><strong>{settings.categoryId==='variety'?'Daily Variety':settings.categoryId.endsWith('_daily')?`${BUILT_IN_CATEGORIES.find(c=>c.id===settings.categoryId.replace('_daily',''))?.name||'Category'} (Today's 10)`:BUILT_IN_CATEGORIES.find(category=>category.id===settings.categoryId)?.name||'Custom'}</strong></div></div><p className="text-xs leading-5 text-stone-500">{settings.eliminations} ejection{settings.eliminations===1?'':'s'} per vote · {settings.allowSkip?'skip allowed':'no skipping'} · {settings.ejectionReveal==='confirm'?'identity confirmed':'identity classified'}</p>{notice&&<p className="text-xs text-rose-300">{notice}</p>}</div>}
     <div className="mt-6 grid grid-cols-[auto_1fr] gap-2">{setupStep>0?<button onClick={()=>setSetupStep(setupStep-1)} className="cipher-button-secondary px-4"><ArrowLeft className="h-4 w-4"/>Back</button>:<span/>}{setupStep<3?<button onClick={()=>setSetupStep(setupStep+1)} className="cipher-button-primary">{setupStep===0?'Set game rules':setupStep===1?'Choose word deck':'Review game'}</button>:<button onClick={onStart} disabled={online<4} className="cipher-button-primary disabled:opacity-30"><Send className="h-4 w-4"/>{online<4?`Need ${4-online} more`:`Start game with ${online}`}</button>}</div>
   </section></div>;
 };

@@ -56,6 +56,10 @@
     --illustration: #5ca8ff;
     --illustration-accent: #ff7457;
     --illustration-opacity: 0.09;
+    --ink: var(--text);
+    --paper: var(--surface);
+    --muted: var(--text-muted);
+    --line: color-mix(in srgb, var(--ink) 24%, transparent);
   }
 
   * {

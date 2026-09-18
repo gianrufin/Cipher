@@ -236,3 +236,259 @@ export function playCountdown(step: number) {
   triggerHaptic(isZero ? [80, 50, 150] : 40);
 }
 
+/**
+ * Dramatic Soundboard & Reveal Effects
+ */
+
+// Heavy judicial gavel impact on oak sound
+export function playGavel() {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+
+  // Sharp wood crack transient
+  const osc1 = ctx.createOscillator();
+  const gain1 = ctx.createGain();
+  osc1.type = 'triangle';
+  osc1.frequency.setValueAtTime(280, now);
+  osc1.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+  gain1.gain.setValueAtTime(0.35, now);
+  gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+  osc1.connect(gain1);
+  gain1.connect(ctx.destination);
+  osc1.start(now);
+  osc1.stop(now + 0.1);
+
+  // Deep resonant wood block body
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(110, now + 0.01);
+  osc2.frequency.exponentialRampToValueAtTime(45, now + 0.35);
+  gain2.gain.setValueAtTime(0.4, now + 0.01);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+  osc2.connect(gain2);
+  gain2.connect(ctx.destination);
+  osc2.start(now + 0.01);
+  osc2.stop(now + 0.4);
+
+  triggerHaptic([100, 40, 140]);
+}
+
+// Low sub-bass double-thump "lub-dub" heartbeat
+export function playHeartbeat() {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+
+  // First thump (lub)
+  const osc1 = ctx.createOscillator();
+  const gain1 = ctx.createGain();
+  osc1.type = 'sine';
+  osc1.frequency.setValueAtTime(75, now);
+  osc1.frequency.exponentialRampToValueAtTime(40, now + 0.14);
+  gain1.gain.setValueAtTime(0.35, now);
+  gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+  osc1.connect(gain1);
+  gain1.connect(ctx.destination);
+  osc1.start(now);
+  osc1.stop(now + 0.15);
+
+  // Second thump (dub) - slightly higher and sharper
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(90, now + 0.15);
+  osc2.frequency.exponentialRampToValueAtTime(42, now + 0.32);
+  gain2.gain.setValueAtTime(0.4, now + 0.15);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+  osc2.connect(gain2);
+  gain2.connect(ctx.destination);
+  osc2.start(now + 0.15);
+  osc2.stop(now + 0.33);
+
+  triggerHaptic([60, 80, 70]);
+}
+
+// Cinematic suspense / shock sting
+export function playSuspenseSting() {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  // Dissonant minor second cluster: C4, C#4, F#4, G#4
+  const cluster = [261.63, 277.18, 369.99, 415.30];
+
+  cluster.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.03, now + 0.4);
+
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.08, now + 0.05 + idx * 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.7);
+  });
+
+  // Ominous sub drop
+  const sub = ctx.createOscillator();
+  const subGain = ctx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(140, now + 0.05);
+  sub.frequency.exponentialRampToValueAtTime(35, now + 0.6);
+  subGain.gain.setValueAtTime(0.25, now + 0.05);
+  subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+  sub.connect(subGain);
+  subGain.connect(ctx.destination);
+  sub.start(now + 0.05);
+  sub.stop(now + 0.7);
+
+  triggerHaptic([80, 50, 80, 50, 120]);
+}
+
+// Classic game show buzzer (error / taboo / wrong guess)
+export function playBuzzer() {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  const freqs = [155, 218]; // dissonant tritone interval buzz
+
+  freqs.forEach(freq => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, now);
+
+    gain.gain.setValueAtTime(0.22, now);
+    gain.gain.setValueAtTime(0.22, now + 0.28);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.36);
+  });
+
+  triggerHaptic([180, 40, 180]);
+}
+
+// Rhythmic suspense drumroll build-up
+export function playDrumroll() {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  const beats = 14;
+  const duration = 0.85;
+
+  for (let i = 0; i < beats; i++) {
+    const time = now + (i / beats) * duration;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const progress = i / beats;
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(120 + progress * 40, time);
+    osc.frequency.exponentialRampToValueAtTime(50, time + 0.04);
+
+    const vol = 0.05 + progress * 0.25;
+    gain.gain.setValueAtTime(vol, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.045);
+  }
+
+  // Final crash on end
+  const crashTime = now + duration + 0.02;
+  const crashOsc = ctx.createOscillator();
+  const crashGain = ctx.createGain();
+  crashOsc.type = 'sine';
+  crashOsc.frequency.setValueAtTime(260, crashTime);
+  crashOsc.frequency.exponentialRampToValueAtTime(50, crashTime + 0.3);
+  crashGain.gain.setValueAtTime(0.35, crashTime);
+  crashGain.gain.exponentialRampToValueAtTime(0.001, crashTime + 0.35);
+  crashOsc.connect(crashGain);
+  crashGain.connect(ctx.destination);
+  crashOsc.start(crashTime);
+  crashOsc.stop(crashTime + 0.36);
+
+  triggerHaptic([30, 30, 30, 30, 30, 30, 120]);
+}
+
+// Sneaky imposter stealth tip-toe staccato
+export function playSneak() {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  const notes = [330, 311, 293, 277]; // descending chromatic pizzicato
+
+  notes.forEach((freq, idx) => {
+    const time = now + idx * 0.1;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, time);
+
+    gain.gain.setValueAtTime(0.18, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.09);
+  });
+
+  triggerHaptic([30, 40, 30, 40, 30]);
+}
+
+// Wild Card chaotic Solo Heist fanfare
+export function playSoloHeist() {
+  if (!soundEnabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  const now = ctx.currentTime;
+  // Chaotic ascending whole-tone / tritone fanfare: C4, E4, F#4, Bb4, D5, F#5
+  const notes = [261.63, 329.63, 369.99, 466.16, 587.33, 739.99];
+
+  notes.forEach((freq, i) => {
+    const time = now + i * 0.08;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(freq, time);
+
+    gain.gain.setValueAtTime(0.001, time);
+    gain.gain.linearRampToValueAtTime(0.15, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.45);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.5);
+  });
+
+  triggerHaptic([60, 40, 80, 40, 160]);
+}
+

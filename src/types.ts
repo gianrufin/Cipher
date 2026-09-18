@@ -123,6 +123,22 @@ export interface MatchSummary {
   playerScores?: PlayerMatchScore[];
 }
 
+export interface MatchHistoryRecord {
+  id: string;
+  timestamp: number;
+  winner: 'citizens' | 'imposters' | 'anarchist';
+  winReason: string;
+  categoryName: string;
+  trueCitizenWord: string;
+  decoyWord?: string;
+  roundsPlayed: number;
+  playerCount: number;
+  impostersCaught: number;
+  totalImposters: number;
+  topScorerName?: string;
+  topScorerPoints?: number;
+}
+
 export type GamePhase =
   | 'onboarding'
   | 'mode_select'

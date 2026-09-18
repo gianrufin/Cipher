@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, ScanSearch, Sparkles } from 'lucide-react';
+import { ArrowRight, Bomb, ScanSearch, Sparkles } from 'lucide-react';
 import { EjectionReveal, MatchSummary, Player } from '../types';
-import { playElimination, playImposterWin, playVictory, triggerHaptic } from '../utils/soundEffects';
+import {
+  playBuzzer, playElimination, playGavel, playImposterWin,
+  playSoloHeist, playVictory, triggerHaptic
+} from '../utils/soundEffects';
 import { PlayerAvatar } from './PlayerAvatar';
 
 interface EliminationAndOutcomeProps {
@@ -29,22 +32,29 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   const remaining = players.filter(player => !player.isEliminated);
   const remainingImposters = remaining.filter(player => player.role === 'imposter');
   const remainingBadTeam = remaining.filter(player => player.role === 'imposter' || player.role === 'sleeper');
-  const remainingCitizenTeam = remaining.filter(player => ['citizen', 'decoy', 'inspector', 'bodyguard'].includes(player.role));
+  const remainingCitizenTeam = remaining.filter(player => ['citizen', 'decoy', 'inspector', 'bodyguard', 'anarchist'].includes(player.role));
   const livingInspector = remaining.find(player => player.role === 'inspector');
   const totalImposters = players.filter(player => player.role === 'imposter').length;
   const impostersCaught = players.filter(player => player.role === 'imposter' && player.isEliminated).length;
   const hasNextElimination = Boolean(eliminationQueue[queueIndex + 1]);
   const eliminatedQueuePlayers = eliminationQueue.filter(queued => players.find(player => player.id === queued.id)?.isEliminated);
   const counterImposter = [...eliminatedQueuePlayers].reverse().find(player => player.role === 'imposter');
+  const totalPriorEliminations = players.filter(player => player.isEliminated && player.id !== eliminatedPlayer.id).length;
+  const isFirstEjectionOfMatch = queueIndex === 0 && totalPriorEliminations === 0;
+  const livingAnarchist = remaining.find(player => player.role === 'anarchist' && player.id !== eliminatedPlayer.id);
+  const wildcardPivotNotice = Boolean(livingAnarchist && isFirstEjectionOfMatch);
 
   useEffect(() => {
-    playElimination();
+    playGavel();
+    setTimeout(() => playElimination(), 120);
     triggerHaptic([90, 45, 130]);
   }, []);
 
   const finish = (winner: MatchSummary['winner'], winReason: string, specialWinnerName?: string, bonusPlayerId?: string) => {
     if (winner === 'citizens') {
       playVictory();
+    } else if (winner === 'anarchist') {
+      playSoloHeist();
     } else {
       playImposterWin();
     }
@@ -62,8 +72,8 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
   };
 
   const proceedFromReveal = () => {
-    if (eliminatedPlayer.role === 'anarchist' && queueIndex === 0) {
-      finish('anarchist', `${eliminatedPlayer.name} baited the table into an elimination and wins alone.`, eliminatedPlayer.name);
+    if (eliminatedPlayer.role === 'anarchist' && isFirstEjectionOfMatch) {
+      finish('anarchist', `${eliminatedPlayer.name} baited the table into the first elimination and wins alone.`, eliminatedPlayer.name);
       return;
     }
     if (remainingImposters.length === 0 && counterImposter) {
@@ -84,6 +94,7 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
     if (clean(wordGuess) === clean(trueCitizenWord)) {
       finish('imposters', `${counterImposter?.name || 'The final Imposter'} decoded the Citizen word in the Last Stand.`, undefined, counterImposter?.id);
     } else {
+      playBuzzer();
       evaluateBoard();
     }
   };
@@ -95,14 +106,24 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
       setInspectorGuessId(null);
       triggerHaptic(30);
     } else {
+      playBuzzer();
       finish('citizens', `${counterImposter?.name || 'The final Imposter'} failed to identify the Inspector.`);
     }
   };
 
-  const publicAnarchistWin = eliminatedPlayer.role === 'anarchist' && queueIndex === 0;
+  const publicAnarchistWin = eliminatedPlayer.role === 'anarchist' && isFirstEjectionOfMatch;
   const revealAlignment = ejectionReveal === 'confirm' || publicAnarchistWin;
   const isImposter = eliminatedPlayer.role === 'imposter';
-  const identityLabel = publicAnarchistWin ? 'WILD CARD' : !revealAlignment ? 'IDENTITY CLASSIFIED' : isImposter ? 'IMPOSTER' : 'NOT AN IMPOSTER';
+  const isAnarchist = eliminatedPlayer.role === 'anarchist';
+  const identityLabel = publicAnarchistWin
+    ? 'WILD CARD (SOLO HEIST)'
+    : !revealAlignment
+    ? 'IDENTITY CLASSIFIED'
+    : isImposter
+    ? 'IMPOSTER'
+    : isAnarchist
+    ? 'WILD CARD (ROGUE CITIZEN)'
+    : 'NOT AN IMPOSTER';
   const tone = !revealAlignment
     ? 'text-stone-300 border-white/15 bg-white/[0.04]'
     : isImposter
@@ -127,15 +148,26 @@ export const EliminationAndOutcome: React.FC<EliminationAndOutcomeProps> = ({
           </div>
           <p className="mt-5 text-sm leading-6 text-stone-400">
             {publicAnarchistWin
-              ? queueIndex === 0
-                ? 'The table walked into the wildcard trap.'
-                : 'The Wild Card was exposed, but not in the first elimination slot needed for a solo win.'
+              ? 'The table walked into the wildcard trap — solo victory!'
+              : isAnarchist
+              ? `${eliminatedPlayer.name} was the Wild Card. Their first-ejection solo heist had expired, and they were playing as a Rogue Citizen.`
               : !revealAlignment
               ? `${eliminatedPlayer.name} was ejected. Their alignment and the remaining Imposter count stay classified until the debrief.`
               : isImposter
               ? `${eliminatedPlayer.name} was an Imposter. ${remainingImposters.length} Imposter${remainingImposters.length === 1 ? '' : 's'} remaining.`
               : `${eliminatedPlayer.name} was not an Imposter. ${remainingImposters.length} Imposter${remainingImposters.length === 1 ? '' : 's'} remaining.`}
           </p>
+          {wildcardPivotNotice && (
+            <div className="mt-5 rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-4 text-left">
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-300">
+                <Bomb className="h-4 w-4" />
+                <span>Wild Card Solo Heist Expired</span>
+              </div>
+              <p className="mt-1.5 text-xs text-stone-300 leading-relaxed">
+                With the first ejection locked, the Wild Card can no longer win alone. Any surviving Wild Card is now a <strong>Rogue Citizen</strong> fighting with the Citizen team to expose all Imposters!
+              </p>
+            </div>
+          )}
           <button type="button" onClick={proceedFromReveal} className="cipher-button-primary w-full mt-7">
             {hasNextElimination ? `Reveal next: ${eliminationQueue[queueIndex + 1].name}` : 'Resolve outcome'} <ArrowRight className="h-4 w-4" />
           </button>

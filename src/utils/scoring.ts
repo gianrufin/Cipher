@@ -3,7 +3,7 @@ import { MatchSummary, Player, PlayerCareerStats, PlayerMatchScore, RoleType } f
 const citizenRoles: RoleType[] = ['citizen', 'decoy', 'inspector', 'bodyguard'];
 
 export function didPlayerWin(player: Player, winner: MatchSummary['winner']): boolean {
-  if (winner === 'citizens') return citizenRoles.includes(player.role);
+  if (winner === 'citizens') return citizenRoles.includes(player.role) || player.role === 'anarchist';
   if (winner === 'imposters') return player.role === 'imposter' || player.role === 'sleeper';
   return player.role === 'anarchist';
 }
@@ -15,20 +15,25 @@ export function calculateMatchScores(players: Player[], summary: MatchSummary): 
       const reasons: string[] = [];
       const won = didPlayerWin(player, summary.winner);
 
-      if (player.role === 'anarchist' && summary.winner === 'anarchist') {
-        points += 5;
-        reasons.push('+5 completed the Anarchist objective');
+      if (player.role === 'anarchist') {
+        if (summary.winner === 'anarchist') {
+          points += 5;
+          reasons.push('+5 completed the Wild Card solo heist');
+        } else if (won) {
+          points += 3;
+          reasons.push('+3 redeemed as Rogue Citizen with the team');
+        }
       } else if (won) {
         points += 3;
         reasons.push('+3 won with the team');
       }
 
-      if (!player.isEliminated && player.role !== 'anarchist') {
+      if (!player.isEliminated && (summary.winner === 'citizens' || player.role !== 'anarchist')) {
         points += 1;
         reasons.push('+1 survived the match');
       }
 
-      if (citizenRoles.includes(player.role) && summary.impostersCaughtThisMatch > 0) {
+      if ((citizenRoles.includes(player.role) || (player.role === 'anarchist' && summary.winner === 'citizens')) && summary.impostersCaughtThisMatch > 0) {
         points += summary.impostersCaughtThisMatch;
         reasons.push(`+${summary.impostersCaughtThisMatch} Citizen team capture`);
       }

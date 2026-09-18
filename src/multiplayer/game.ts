@@ -120,7 +120,7 @@ export const onlineScoreboard = (state: OnlinePublicState, assignments: Map<stri
   const citizenWin = state.winner === 'citizens';
   return state.players.map(player => {
     const role = assignments.get(player.id)?.role || 'citizen';
-    const won = state.winner === 'anarchist' ? role === 'anarchist' : citizenWin ? ['citizen', 'decoy', 'inspector', 'bodyguard'].includes(role) : ['imposter', 'sleeper'].includes(role);
+    const won = state.winner === 'anarchist' ? role === 'anarchist' : citizenWin ? ['citizen', 'decoy', 'inspector', 'bodyguard', 'anarchist'].includes(role) : ['imposter', 'sleeper'].includes(role);
     return { ...player, score: (won ? 5 : 0) + (!player.eliminated ? 2 : 0) };
   });
 };

@@ -13,6 +13,12 @@ import { BUILT_IN_CATEGORIES } from '../data/wordPacks';
 import { DAILY_VAULT_CATEGORY } from '../data/dailyVault';
 import { selectCrewPair } from '../utils/crewSync';
 import { getDailyDeck, getDailyDeckLabel, getWordPoolStatus } from '../utils/wordHistory';
+import {
+  createCategoryDailyDeck,
+  getCategoryDailyPairs,
+  getCategoryDailyDeckLabel,
+  getDayEpochIndex
+} from '../utils/dailyCategoryEngine';
 import { playWhoosh, triggerHaptic } from '../utils/soundEffects';
 import { PlayerAvatar } from './PlayerAvatar';
 import { SelfieCaptureModal } from './SelfieCaptureModal';
@@ -92,6 +98,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
   const [audience, setAudience] = useState<WordAudience>(initialConfig?.audience || 'family');
   const [difficulty, setDifficulty] = useState<WordDifficulty>(initialConfig?.difficulty || 'easy');
   const [selectedCategoryId, setSelectedCategoryId] = useState(initialConfig?.selectedCategoryId || 'random');
+  const [deckMode, setDeckMode] = useState<'daily' | 'vault'>('daily');
   const [isLaunching, setIsLaunching] = useState(false);
   const [gamePreset, setGamePreset] = useState<GamePreset>('classic');
 
@@ -149,9 +156,18 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     }
   }, [categories, selectedCategoryId]);
 
-  const selectedDeckPairs = selectedCategoryId === 'random'
-    ? getDailyDeck(categories.flatMap(category => category.pairs))
-    : categories.find(category => category.id === selectedCategoryId)?.pairs || [];
+  const selectedDeckPairs = useMemo(() => {
+    if (selectedCategoryId === 'random') {
+      return deckMode === 'daily'
+        ? getDailyDeck(categories.flatMap(category => category.pairs), 20)
+        : categories.flatMap(category => category.pairs);
+    }
+    const target = categories.find(category => category.id === selectedCategoryId);
+    if (!target) return [];
+    return deckMode === 'daily'
+      ? getCategoryDailyPairs(target.pairs, target.id, new Date(), 10)
+      : target.pairs;
+  }, [selectedCategoryId, deckMode, categories]);
   const selectedDeckStatus = getWordPoolStatus(selectedDeckPairs);
 
   const addPlayer = (event: React.FormEvent) => {
@@ -263,16 +279,21 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
       setStep(3);
       return;
     }
+    const selectedCategory = categories.find(item => item.id === selectedCategoryId) || categories[0];
     const category = selectedCategoryId === 'random'
       ? {
           id: 'variety',
-          name: `Daily Deck · ${getDailyDeckLabel()}`,
+          name: deckMode === 'daily' ? `Daily Deck · ${getCategoryDailyDeckLabel()}` : 'Full Variety Deck',
           iconName: 'Sparkles',
           description: 'All eligible topics shuffled together.',
           audiences: [audience],
-          pairs: getDailyDeck(categories.flatMap(item => item.pairs))
+          pairs: deckMode === 'daily'
+            ? getDailyDeck(categories.flatMap(item => item.pairs), 20)
+            : categories.flatMap(item => item.pairs)
         } as WordCategory
-      : categories.find(item => item.id === selectedCategoryId) || categories[0];
+      : (deckMode === 'daily'
+          ? createCategoryDailyDeck(selectedCategory)
+          : selectedCategory);
 
     setIsLaunching(true);
     setErrorMessage('');
@@ -316,7 +337,7 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
     { key: 'inspector' as const, name: 'Inspector', team: 'Citizen', icon: ScanSearch, copy: 'Signal Sweep: exactly one of three seats is an Imposter.' },
     { key: 'bodyguard' as const, name: 'Bodyguard', team: 'Citizen', icon: ShieldCheck, copy: 'Protects another player once.' },
     { key: 'sleeper' as const, name: 'Sleeper Agent', team: 'Imposter ally', icon: HeartHandshake, copy: 'Knows the true Citizen word.' },
-    { key: 'anarchist' as const, name: 'Wild Card', team: 'Neutral', icon: Bomb, copy: 'Must rank first when voted out.' }
+    { key: 'anarchist' as const, name: 'Wild Card', team: 'Independent / Rogue', icon: Bomb, copy: 'Wins solo if ejected first; pivots to Citizen if another player is ejected first.' }
   ];
 
   return (
@@ -607,34 +628,117 @@ export const SetupScreen: React.FC<SetupScreenProps> = ({
             </div>
 
             <div>
-              <div className="mb-3 flex items-center justify-between">
-                <p className="cipher-kicker">Category</p>
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p className="cipher-kicker">Category</p>
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                    {deckMode === 'daily' ? `Everyday Update · Day ${getDayEpochIndex() + 1}` : 'Vault Mode'}
+                  </span>
+                </div>
                 <button type="button" onClick={onOpenCustomModal} className="flex items-center gap-1.5 text-[10px] font-bold text-[#ff8065]">
                   <BookOpen className="h-3.5 w-3.5" /> Custom pack
                 </button>
               </div>
-              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                <CategoryButton
-                  active={selectedCategoryId === 'random'}
-                  title={`Daily Deck · ${getDailyDeckLabel()}`}
-                  copy={`${getWordPoolStatus(getDailyDeck(categories.flatMap(category => category.pairs))).freshPairs} fresh pairs · rotates daily in Philippine time`}
-                  onClick={() => setSelectedCategoryId('random')}
-                />
-                {categories.map(category => (
-                  <CategoryButton
-                    key={category.id}
-                    active={selectedCategoryId === category.id}
-                    title={category.name}
-                    copy={`${getWordPoolStatus(category.pairs).freshPairs} fresh of ${category.pairs.length} · ${category.description}`}
-                    onClick={() => setSelectedCategoryId(category.id)}
-                  />
-                ))}
+
+              <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-white/[0.08] bg-stone-900/60 p-1">
+                <button
+                  type="button"
+                  onClick={() => setDeckMode('daily')}
+                  className={`rounded-lg py-1.5 text-xs font-bold transition-colors ${
+                    deckMode === 'daily'
+                      ? 'border border-amber-500/40 bg-amber-500/20 text-amber-200 shadow-sm'
+                      : 'text-stone-400 hover:text-stone-200'
+                  }`}
+                >
+                  ☀️ Today's 10 Decks ({getCategoryDailyDeckLabel()})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeckMode('vault')}
+                  className={`rounded-lg py-1.5 text-xs font-bold transition-colors ${
+                    deckMode === 'vault'
+                      ? 'border border-rose-500/40 bg-rose-500/20 text-rose-200 shadow-sm'
+                      : 'text-stone-400 hover:text-stone-200'
+                  }`}
+                >
+                  📚 Full Vault Decks
+                </button>
               </div>
-              <p className={`mt-3 text-xs font-bold ${selectedDeckStatus.freshPairs >= 20 ? 'text-emerald-400' : 'text-[var(--coral)]'}`}>
-                {selectedDeckStatus.freshPairs >= 20
-                  ? `${selectedDeckStatus.freshPairs} fresh pairs. Ready for a long game night.`
-                  : `Only ${selectedDeckStatus.freshPairs} fresh pairs remain. Choose Variety Deck for a 20-game sitting.`}
-              </p>
+
+              {deckMode === 'daily' && (
+                <div className="mb-2.5 flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-2.5 py-1.5 text-[11px] text-amber-200/90">
+                  <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <span>PH Time · 10 new pairs daily per category · 2-year non-repeating cycle</span>
+                </div>
+              )}
+
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                {deckMode === 'daily' ? (
+                  <>
+                    <CategoryButton
+                      active={selectedCategoryId === 'random'}
+                      title={`Daily Variety Deck · ${getCategoryDailyDeckLabel()}`}
+                      copy={`${getWordPoolStatus(getDailyDeck(categories.flatMap(category => category.pairs), 20)).freshPairs} fresh pairs · all topics combined · rotates daily`}
+                      onClick={() => setSelectedCategoryId('random')}
+                    />
+                    {categories.map(category => {
+                      const dailyPairs = getCategoryDailyPairs(category.pairs, category.id, new Date(), 10);
+                      const poolStatus = getWordPoolStatus(dailyPairs);
+                      const isPinoy = category.id === 'pinoy_everyday';
+                      return (
+                        <CategoryButton
+                          key={category.id}
+                          active={selectedCategoryId === category.id}
+                          title={isPinoy ? `Pinoy Everyday (Tagalog) · Today's 10` : `${category.name} · Today's 10`}
+                          copy={isPinoy
+                            ? `${poolStatus.freshPairs} fresh of 10 Tagalog pairs · Zero repeated words · 105 in vault`
+                            : `${poolStatus.freshPairs} fresh of 10 pairs for ${getCategoryDailyDeckLabel()} · ${category.description}`}
+                          onClick={() => setSelectedCategoryId(category.id)}
+                        />
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <CategoryButton
+                      active={selectedCategoryId === 'random'}
+                      title="Full Variety Deck · All Topics"
+                      copy={`${categories.flatMap(category => category.pairs).length} total pairs combined across all topics`}
+                      onClick={() => setSelectedCategoryId('random')}
+                    />
+                    {categories.map(category => {
+                      const poolStatus = getWordPoolStatus(category.pairs);
+                      const isPinoy = category.id === 'pinoy_everyday';
+                      return (
+                        <CategoryButton
+                          key={category.id}
+                          active={selectedCategoryId === category.id}
+                          title={isPinoy ? `Pinoy Everyday (Tagalog Vault)` : `${category.name} (Full Vault)`}
+                          copy={`${poolStatus.freshPairs} fresh of ${category.pairs.length} pairs · ${category.description}`}
+                          onClick={() => setSelectedCategoryId(category.id)}
+                        />
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-xs">
+                <span className={`font-bold ${selectedDeckStatus.freshPairs >= (deckMode === 'daily' ? 10 : 20) ? 'text-emerald-400' : 'text-[var(--coral)]'}`}>
+                  {deckMode === 'daily'
+                    ? `${selectedDeckStatus.freshPairs} of 10 pairs ready for ${getCategoryDailyDeckLabel()}`
+                    : `${selectedDeckStatus.freshPairs} fresh of ${selectedDeckPairs.length} pairs available in vault`}
+                </span>
+                {deckMode === 'daily' && selectedDeckStatus.freshPairs < 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setDeckMode('vault')}
+                    className="text-[11px] font-semibold text-amber-300 underline underline-offset-2 hover:text-amber-200"
+                  >
+                    Switch to Full Vault
+                  </button>
+                )}
+              </div>
             </div>
           </section>
         )}
@@ -753,7 +857,7 @@ const ToggleRow = ({ label, copy, checked, onChange }: { label: string; copy: st
   </button>
 );
 
-const CategoryButton = ({ active, title, copy, onClick }: { active: boolean; title: string; copy: string; onClick: () => void }) => (
+const CategoryButton: React.FC<{ active: boolean; title: string; copy: string; onClick: () => void }> = ({ active, title, copy, onClick }) => (
   <button type="button" onClick={onClick} className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${active ? 'border-[#ff6846] bg-[#ff6846]/10' : 'border-white/[0.07] bg-white/[0.02]'}`}>
     <div className="flex items-center justify-between gap-3">
       <div>

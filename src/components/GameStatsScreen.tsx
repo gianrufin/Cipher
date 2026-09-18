@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import {
   Bomb, ChevronDown, Flame, RotateCcw, Share2,
-  Shield, Trophy, Users
+  Shield, Trophy, Users, Volume2, Sparkles, BarChart3, History
 } from 'lucide-react';
-import { MatchSummary, Player, PlayerCareerStats, SessionStats } from '../types';
+import { MatchHistoryRecord, MatchSummary, Player, PlayerCareerStats, SessionStats } from '../types';
 import { ShareResultModal } from './ShareResultModal';
+import { RoastReelView } from './RoastReelView';
+import { MatchHistoryView } from './MatchHistoryView';
 import { getRoleDefinition } from '../data/roleCatalog';
 import { getPairKey } from '../utils/wordHistory';
 
@@ -13,11 +15,13 @@ interface GameStatsScreenProps {
   matchSummary: MatchSummary;
   sessionStats: SessionStats;
   careerStats: Record<string, PlayerCareerStats>;
+  matchHistory?: MatchHistoryRecord[];
   trueCitizenWord: string;
   decoyWord: string;
   categoryName: string;
   onRematch: () => void;
   onEditSetup: () => void;
+  onOpenSoundboard?: () => void;
 }
 
 const winnerMeta = {
@@ -27,17 +31,18 @@ const winnerMeta = {
 };
 
 export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
-  players, matchSummary, sessionStats, careerStats, trueCitizenWord, decoyWord,
-  categoryName, onRematch, onEditSetup
+  players, matchSummary, sessionStats, careerStats, matchHistory = [], trueCitizenWord, decoyWord,
+  categoryName, onRematch, onEditSetup, onOpenSoundboard
 }) => {
   const [shareOpen, setShareOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'roast' | 'leaderboard' | 'standings' | 'history'>('roast');
   const [expandedScore, setExpandedScore] = useState<string | null>(null);
   const [wordFeedback, setWordFeedback] = useState<string>('');
   const meta = winnerMeta[matchSummary.winner];
   const WinnerIcon = meta.icon;
   const scores = matchSummary.playerScores || [];
   const standings = useMemo(
-    () => Object.values(careerStats).sort((a, b) => b.totalPoints - a.totalPoints || b.wins - a.wins),
+    () => (Object.values(careerStats) as PlayerCareerStats[]).sort((a, b) => b.totalPoints - a.totalPoints || b.wins - a.wins),
     [careerStats]
   );
 
@@ -56,69 +61,157 @@ export const GameStatsScreen: React.FC<GameStatsScreenProps> = ({
             <MiniStat value={matchSummary.roundsPlayed} label="Rounds" />
             <MiniStat value={`${matchSummary.impostersCaughtThisMatch}/${matchSummary.totalImposters}`} label="Caught" />
           </div>
-          <button type="button" onClick={() => setShareOpen(true)} className="cipher-button-acid mt-6 w-full">
-            <Share2 className="h-4 w-4" /> Create share card
-          </button>
-        </section>
-
-        <section className="cipher-panel p-5">
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <p className="cipher-kicker">Match points</p>
-              <h2 className="mt-2 font-display text-2xl font-black text-stone-50">Tonight's leaderboard</h2>
-            </div>
-            <Trophy className="h-5 w-5 text-amber-300" />
-          </div>
-
-          <div className="mt-5 space-y-2">
-            {scores.map((score, index) => (
+          <div className="mt-6 grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setShareOpen(true)} className="cipher-button-acid w-full">
+              <Share2 className="h-4 w-4" /> Share card
+            </button>
+            {onOpenSoundboard && (
               <button
-                key={score.playerId}
                 type="button"
-                onClick={() => setExpandedScore(current => current === score.playerId ? null : score.playerId)}
-                className={`w-full rounded-2xl border p-3.5 text-left ${index === 0 ? 'border-amber-300/25 bg-amber-300/[0.06]' : 'border-white/[0.07] bg-white/[0.02]'}`}
+                onClick={onOpenSoundboard}
+                className="cipher-button-secondary w-full"
               >
-                <div className="flex items-center gap-3">
-                  <img src={getRoleDefinition(score.role).image} alt="" className="h-12 w-12 border-2 border-[var(--ink)] bg-[var(--surface-inset)] object-contain" />
-                  <span className={`flex h-8 w-8 items-center justify-center rounded-full font-mono text-[10px] font-bold ${index === 0 ? 'bg-amber-300 text-stone-950' : 'bg-white/[0.06] text-stone-500'}`}>{index + 1}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-stone-100">{score.name}</p>
-                    <p className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-stone-600">{score.role}</p>
-                  </div>
-                  <strong className="font-display text-xl text-stone-50">{score.points} <span className="text-[10px] text-stone-600">PTS</span></strong>
-                  <ChevronDown className={`h-4 w-4 text-stone-600 transition-transform ${expandedScore === score.playerId ? 'rotate-180' : ''}`} />
-                </div>
-                {expandedScore === score.playerId && (
-                  <div className="mt-3 border-t border-white/[0.07] pt-3 space-y-1">
-                    {score.reasons.length ? score.reasons.map(reason => <p key={reason} className="text-[11px] text-stone-400">{reason}</p>) : <p className="text-[11px] text-stone-600">No points earned this match.</p>}
-                  </div>
-                )}
+                <Volume2 className="h-4 w-4 text-[var(--coral)]" /> Soundboard
               </button>
-            ))}
+            )}
           </div>
         </section>
 
-        <section className="cipher-panel p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="cipher-kicker">Session standings</p>
-              <h2 className="mt-2 font-display text-xl font-black text-stone-50">All-time on this device</h2>
-            </div>
-            <span className="rounded-full border border-white/10 px-2.5 py-1 text-[9px] font-mono text-stone-500">{sessionStats.gamesPlayed} games</span>
-          </div>
-          <div className="mt-4 space-y-2">
-            {standings.slice(0, 8).map((career, index) => (
-              <div key={career.name.toLocaleLowerCase()} className="grid grid-cols-[24px_1fr_auto] items-center gap-3 border-b border-white/[0.06] py-3 last:border-0">
-                <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
-                <div>
-                  <p className="text-xs font-bold text-stone-200">{career.name}</p>
-                  <p className="mt-1 text-[9px] text-stone-600">{career.wins} wins · {career.currentStreak} streak · best {career.bestStreak}</p>
-                </div>
-                <span className="font-display text-lg font-black text-[#ff8065]">{career.totalPoints}</span>
+        {/* View Segmented Tabs */}
+        <div className="grid grid-cols-4 gap-1 rounded-2xl border-2 border-[var(--ink)] bg-[var(--paper)] p-1 text-xs font-black shadow-sm">
+          <button
+            type="button"
+            onClick={() => setActiveTab('roast')}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 transition-all ${
+              activeTab === 'roast'
+                ? 'bg-[var(--coral)] text-white shadow-sm'
+                : 'text-[var(--ink)] hover:bg-stone-200/60'
+            }`}
+          >
+            <Flame className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Roast Reel</span>
+            <span className="sm:hidden">Roast</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('leaderboard')}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 transition-all ${
+              activeTab === 'leaderboard'
+                ? 'bg-[var(--coral)] text-white shadow-sm'
+                : 'text-[var(--ink)] hover:bg-stone-200/60'
+            }`}
+          >
+            <Trophy className="h-3.5 w-3.5" />
+            <span>Points</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('standings')}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 transition-all ${
+              activeTab === 'standings'
+                ? 'bg-[var(--coral)] text-white shadow-sm'
+                : 'text-[var(--ink)] hover:bg-stone-200/60'
+            }`}
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            <span>Career</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center justify-center gap-1.5 rounded-xl py-2 transition-all ${
+              activeTab === 'history'
+                ? 'bg-[var(--coral)] text-white shadow-sm'
+                : 'text-[var(--ink)] hover:bg-stone-200/60'
+            }`}
+          >
+            <History className="h-3.5 w-3.5" />
+            <span>History</span>
+          </button>
+        </div>
+
+        {/* Tab 1: Hall of Fame & Roast Reel */}
+        {activeTab === 'roast' && (
+          <RoastReelView
+            players={players}
+            matchSummary={matchSummary}
+            trueCitizenWord={trueCitizenWord}
+            decoyWord={decoyWord}
+            categoryName={categoryName}
+            onOpenShareCard={() => setShareOpen(true)}
+            onOpenSoundboard={onOpenSoundboard || (() => {})}
+          />
+        )}
+
+        {/* Tab 2: Match Leaderboard */}
+        {activeTab === 'leaderboard' && (
+          <section className="cipher-panel p-5">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="cipher-kicker">Match points</p>
+                <h2 className="mt-2 font-display text-2xl font-black text-stone-50">Tonight's leaderboard</h2>
               </div>
-            ))}
-          </div>
-        </section>
+              <Trophy className="h-5 w-5 text-amber-300" />
+            </div>
+
+            <div className="mt-5 space-y-2">
+              {scores.map((score, index) => (
+                <button
+                  key={score.playerId}
+                  type="button"
+                  onClick={() => setExpandedScore(current => current === score.playerId ? null : score.playerId)}
+                  className={`w-full rounded-2xl border p-3.5 text-left ${index === 0 ? 'border-amber-300/25 bg-amber-300/[0.06]' : 'border-white/[0.07] bg-white/[0.02]'}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <img src={getRoleDefinition(score.role).image} alt="" className="h-12 w-12 border-2 border-[var(--ink)] bg-[var(--surface-inset)] object-contain" />
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full font-mono text-[10px] font-bold ${index === 0 ? 'bg-amber-300 text-stone-950' : 'bg-white/[0.06] text-stone-500'}`}>{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-stone-100">{score.name}</p>
+                      <p className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-stone-600">{score.role}</p>
+                    </div>
+                    <strong className="font-display text-xl text-stone-50">{score.points} <span className="text-[10px] text-stone-600">PTS</span></strong>
+                    <ChevronDown className={`h-4 w-4 text-stone-600 transition-transform ${expandedScore === score.playerId ? 'rotate-180' : ''}`} />
+                  </div>
+                  {expandedScore === score.playerId && (
+                    <div className="mt-3 border-t border-white/[0.07] pt-3 space-y-1">
+                      {score.reasons.length ? score.reasons.map(reason => <p key={reason} className="text-[11px] text-stone-400">{reason}</p>) : <p className="text-[11px] text-stone-600">No points earned this match.</p>}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Tab 3: Session Standings */}
+        {activeTab === 'standings' && (
+          <section className="cipher-panel p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="cipher-kicker">Session standings</p>
+                <h2 className="mt-2 font-display text-xl font-black text-stone-50">All-time on this device</h2>
+              </div>
+              <span className="rounded-full border border-white/10 px-2.5 py-1 text-[9px] font-mono text-stone-500">{sessionStats.gamesPlayed} games</span>
+            </div>
+            <div className="mt-4 space-y-2">
+              {standings.slice(0, 8).map((career, index) => (
+                <div key={career.name.toLocaleLowerCase()} className="grid grid-cols-[24px_1fr_auto] items-center gap-3 border-b border-white/[0.06] py-3 last:border-0">
+                  <span className="font-mono text-[10px] text-stone-600">{String(index + 1).padStart(2, '0')}</span>
+                  <div>
+                    <p className="text-xs font-bold text-stone-200">{career.name}</p>
+                    <p className="mt-1 text-[9px] text-stone-600">{career.wins} wins · {career.currentStreak} streak · best {career.bestStreak}</p>
+                  </div>
+                  <span className="font-display text-lg font-black text-[#ff8065]">{career.totalPoints}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Tab 4: Match History (Last 5 matches) */}
+        {activeTab === 'history' && (
+          <MatchHistoryView history={matchHistory} />
+        )}
 
         <section className="grid grid-cols-2 gap-2">
           <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">

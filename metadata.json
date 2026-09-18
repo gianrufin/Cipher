@@ -1,6 +1,8 @@
 {
   "name": "Cipher: Social Deduction",
   "description": "A mobile-first face-to-face social deduction party game for a single phone with anonymous roles, decoy words, dynamic clues, and imposters.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "camera"
+  ],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

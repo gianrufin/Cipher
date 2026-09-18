@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   GamePhase, Player, WordCategory, WordPair, GameMode, VotingStyle,
   RoundModifier, SessionStats, MatchSummary, SpecialRoleConfig, RoleType,
-  EjectionReveal, EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty, CrewProfile
+  EjectionReveal, EliminationsPerVote, PlayerCareerStats, WordAudience, WordDifficulty, CrewProfile,
+  MatchHistoryRecord
 } from './types';
 import { BUILT_IN_CATEGORIES, ROUND_MODIFIERS } from './data/wordPacks';
 import { secureShuffle } from './utils/wordHistory';
@@ -25,6 +26,7 @@ import { OnlineRoomScreen } from './components/OnlineRoomScreen';
 import { SettingsScreen } from './components/SettingsScreen';
 import { CrewScreen } from './components/CrewScreen';
 import { RoleArchive } from './components/RoleArchive';
+import { SoundboardModal } from './components/SoundboardModal';
 import { getActiveCrew, markCrewPlayed, setActiveCrew } from './utils/crewStore';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -52,6 +54,7 @@ export default function App() {
   const [isRestartOpen, setIsRestartOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isRoleArchiveOpen, setIsRoleArchiveOpen] = useState(false);
+  const [isSoundboardOpen, setIsSoundboardOpen] = useState(false);
   const [activeCrew, setActiveCrewState] = useState<CrewProfile | undefined>(() => getActiveCrew());
 
   // Persistence: custom pairs & saved player roster
@@ -91,6 +94,15 @@ export default function App() {
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
+    }
+  });
+
+  const [matchHistory, setMatchHistory] = useState<MatchHistoryRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('cipher_match_history_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
   });
 
@@ -466,6 +478,35 @@ export default function App() {
       }
       return updated;
     });
+
+    // Record match in lightweight 5-match history
+    const topScorer = playerScores && playerScores.length > 0 ? playerScores[0] : undefined;
+    const historyRecord: MatchHistoryRecord = {
+      id: `match_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: Date.now(),
+      winner: summary.winner,
+      winReason: summary.winReason,
+      categoryName: activeCategory.name,
+      trueCitizenWord,
+      decoyWord: decoyWord || undefined,
+      roundsPlayed: summary.roundsPlayed,
+      playerCount: players.length,
+      impostersCaught: summary.impostersCaughtThisMatch,
+      totalImposters: summary.totalImposters,
+      topScorerName: topScorer?.name,
+      topScorerPoints: topScorer?.points
+    };
+
+    setMatchHistory(prev => {
+      const updated = [historyRecord, ...prev].slice(0, 5);
+      try {
+        localStorage.setItem('cipher_match_history_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+
     setEliminatedPlayer(null);
     setPendingElimination(null);
     setEliminationQueue([]);
@@ -483,6 +524,7 @@ export default function App() {
       [
         'cipher_session_stats',
         'cipher_player_career_stats',
+        'cipher_match_history_v1',
         'cipher_saved_players',
         'cipher_played_pairs_history',
         'cipher_played_pairs_history_v2',
@@ -593,6 +635,7 @@ export default function App() {
     <div className="cipher-shell min-h-screen flex flex-col font-sans antialiased selection:bg-[#ff6846] selection:text-stone-950">
       <Navbar
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSoundboard={() => setIsSoundboardOpen(true)}
         gameActive={!['mode_select', 'setup', 'game_stats', 'onboarding', 'online_room'].includes(phase)}
         playerCount={players.length}
       />
@@ -710,16 +753,22 @@ export default function App() {
             matchSummary={matchSummary}
             sessionStats={sessionStats}
             careerStats={careerStats}
+            matchHistory={matchHistory}
             trueCitizenWord={trueCitizenWord}
             decoyWord={decoyWord}
             categoryName={activeCategory.name}
             onRematch={handleRematch}
             onEditSetup={handleResetToSetup}
+            onOpenSoundboard={() => setIsSoundboardOpen(true)}
           />
         )}
       </main>
 
       {/* Modals */}
+      <SoundboardModal
+        isOpen={isSoundboardOpen}
+        onClose={() => setIsSoundboardOpen(false)}
+      />
       <HowToPlayModal
         isOpen={isRulesOpen}
         onClose={() => setIsRulesOpen(false)}
